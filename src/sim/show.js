@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 three；依赖 engine/junqi 的 fileOf/rankOf；依赖 render/world 的 toWorld/traySlot；
  *          依赖 render/figures 的 createFigure/setCloaked/idle/flagTo/flutter/BLOCK；依赖本目录的 physics 与 fx。
- * [OUTPUT]: 导出 Stage（reset、perform、update、on、applyCloaks、actors、focus、windYaw、busy）。
+ * [OUTPUT]: 导出 Stage（reset、perform、update、on、applyCloaks、actors、focus、windYaw、flagTilt、busy）。
  * [POS]: sim 的导演台，演出层对外的唯一入口。它把引擎已经判定的一步棋演出来：只读走法记录，从不写回对局。
  *        爆炸、挖雷这类会暴露兵种的演出，只在相应棋子没蒙布时才放；蒙着布就只按胜负演通用动作。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
@@ -82,6 +82,7 @@ export class Stage {
     this.time = 0;
     this.wind = 1;
     this.windYaw = null;
+    this.flagTilt = 0; // 旗面后仰角，由总控按镜头俯角给
     this.movers = new Set();
   }
 
@@ -146,7 +147,7 @@ export class Stage {
     this.world.standing = [...this.actors.values()].filter((a) => !a.userData.moving).map((a) => ({ position: a.position, actor: a }));
     if (dt > 0) this.world.step(dt);
     for (const a of this.actors.values()) {
-      if (dt > 0) idle(a, this.time, dt, this.wind, this.windYaw);
+      if (dt > 0) idle(a, this.time, dt, this.wind, this.windYaw, this.flagTilt);
       // 给路过的棋子让位后，弹回原位
       const u = a.userData;
       if (!u.moving && u.home) {
@@ -157,7 +158,7 @@ export class Stage {
     // 正在走的棋子旗子也照常飘
     if (dt > 0)
       for (const a of this.movers) {
-        flagTo(a, dt, this.windYaw);
+        flagTo(a, dt, this.windYaw, this.flagTilt);
         flutter(a.userData.flag, this.time, this.wind);
       }
     this.fx.update(dt);

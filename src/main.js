@@ -4,6 +4,7 @@
  * [OUTPUT]: 无导出。页面入口；在 window.__jq 上留一个调试把手
  * [POS]: 总控。回合流程：引擎裁决 → 电脑选择 → 演出 → 导播。各层只通过走法记录交流。
  *        它还决定「观众是谁」（全知 / 红方 / 黑方），据此挑文字、挑胜率、给棋子蒙布——暗棋的保密在这里落到画面上。
+ *        适配屏幕也在这里：视野随宽高比变、旗面随镜头俯角后仰、轻点才算落子、窄屏默认收起设置。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
  */
 import * as THREE from "three";
@@ -34,10 +35,14 @@ const director = new Director(camera, canvas);
 director.obstacles = () => [...stage.actors.values()];
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
+// 竖屏时把垂直视野撑大，让水平视野不小于 6:5 画面时的宽度；否则手机上只剩一条窄缝，全是特写
+const FOV = { base: 38, aspect: 1.2, max: 78 };
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
+  const half = Math.tan(THREE.MathUtils.degToRad(FOV.base / 2));
+  camera.fov = camera.aspect >= FOV.aspect ? FOV.base : Math.min(FOV.max, THREE.MathUtils.radToDeg(2 * Math.atan((half * FOV.aspect) / camera.aspect)));
   camera.updateProjectionMatrix();
 }
 window.addEventListener("resize", resize);
@@ -69,7 +74,7 @@ function newGame(s, script = null) {
   if (script) showSettings(match.settings);
   stage.reset(match.state.board, makeRng(seed).fork("show"));
   $("seed").textContent = seed;
-  say(script ? `重放种子 ${seed}` : `新的一局，种子 ${seed}`, script && script.events.length ? `按原局的 ${script.events.length} 处设置改动和你的走法精确重放` : `红方 ${armyLabel("r")}，黑方 ${armyLabel("b")} · ${match.settings.mode === "open" ? "明棋" : "暗棋"}`);
+  intro(script);
   $("banner").classList.add("hidden");
   thinker = null;
   ready = null;
@@ -122,6 +127,11 @@ function armyLabel(color) {
   return v === "all" || v === color ? `${a.persona.name} · ${a.formation.name}` : "对手保密";
 }
 
+// 开局白：报种子和双方来历。按当前观众说话，所以还没走棋时换了视角要重说一遍，免得上一句把对手的阵型留在屏幕上
+function intro(script = null) {
+  say(script ? `重放种子 ${seed}` : `新的一局，种子 ${seed}`, script && script.events.length ? `按原局的 ${script.events.length} 处设置改动和你的走法精确重放` : `红方 ${armyLabel("r")}，黑方 ${armyLabel("b")} · ${match.settings.mode === "open" ? "明棋" : "暗棋"}`);
+}
+
 // 兵力表：认得出的按兵种计数，认不出的敌子只报个数
 function roster(color) {
   const alive = {};
@@ -171,11 +181,18 @@ function userChanged() {
   }
 }
 $("btn-pause").onclick = () => setPaused(!paused);
-$("btn-fold").onclick = () => {
-  const panel = $("controls");
-  panel.classList.toggle("folded");
-  $("btn-fold").textContent = panel.classList.contains("folded") ? "设置" : "收起";
+function setFolded(folded) {
+  $("controls").classList.toggle("folded", folded);
+  $("btn-fold").textContent = folded ? "设置" : "收起";
+}
+$("btn-fold").onclick = () => setFolded(!$("controls").classList.contains("folded"));
+// 窄屏：设置默认收起，把画面让给棋盘；棋谱和兵力表做成「战况」抽屉，和设置面板不同时展开
+const narrow = window.matchMedia("(max-width: 700px)");
+if (narrow.matches) setFolded(true);
+$("btn-record").onclick = () => {
+  if ($("record").classList.toggle("open")) setFolded(true);
 };
+$("btn-fold").addEventListener("click", () => $("record").classList.remove("open"));
 function setPaused(p) {
   paused = p;
   $("btn-pause").textContent = paused ? "继续" : "暂停";
@@ -202,7 +219,9 @@ $("mode").onchange = (e) => {
 function setView(v) {
   view = v;
   $("view").value = v;
-  if (match) refresh();
+  if (!match) return;
+  refresh();
+  if (!match.log.length) intro();
 }
 $("view").onchange = (e) => setView(e.target.value);
 // 入座：坐到当前视角那一方的身后；全知观战时默认坐红方
@@ -253,8 +272,15 @@ function markAt(s, color, r = 0.48) {
   marks.add(m);
 }
 const ray = new THREE.Raycaster();
+// 轻点才算落子：按下和抬起几乎在同一处。拖动是在转镜头（触屏上尤其如此），不能误选棋子
+let press = null;
 canvas.addEventListener("pointerdown", (e) => {
-  if (e.button !== 0 || phase !== "human" || paused) return;
+  press = e.button === 0 ? { x: e.clientX, y: e.clientY, at: performance.now() } : null;
+});
+canvas.addEventListener("pointerup", (e) => {
+  const tap = press && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 10 && performance.now() - press.at < 600;
+  press = null;
+  if (!tap || phase !== "human" || paused) return;
   const ndc = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObject(pickPlane)[0];
@@ -389,6 +415,9 @@ function frame(now) {
   const near = (a) => Math.abs(Math.atan2(Math.sin(a - windYaw), Math.cos(a - windYaw)));
   windYaw = near(wa) <= near(wb) ? wa : wb;
   stage.windYaw = windYaw;
+  // 镜头俯角超过约 50° 时（俯视、竖屏入座），旗面逐渐后仰到正对镜头；仰向哪一边取决于旗面此刻哪一面朝着镜头
+  const pitch = Math.asin(Math.min(1, Math.max(-1, -camDir.y)));
+  stage.flagTilt = (windYaw === wa ? 1 : -1) * pitch * THREE.MathUtils.smoothstep(pitch, 0.8, 1.15);
   stage.update(sdt);
   director.update(dt, stage.focus, !paused);
   renderer.render(scene, camera);
@@ -413,6 +442,7 @@ window.__jq = {
     const v = toWorld(x, y).project(camera);
     return [(v.x + 1) / 2, (1 - v.y) / 2];
   },
+  get drawn() { return { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, fov: Math.round(camera.fov) }; },
   fps() {
     return new Promise((res) => {
       let n = 0;

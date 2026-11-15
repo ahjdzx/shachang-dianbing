@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>沙场点兵 · 桌面军棋</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%235a1d14'/><text x='32' y='46' font-size='40' text-anchor='middle' fill='%23e9c46a' font-family='serif'>旗</text></svg>" />
     <link rel="stylesheet" href="/src/ui/style.css" />
@@ -20,6 +20,7 @@
       <header>
         <h1>沙场点兵</h1>
         <span id="selftest" class="badge ok" title="规则引擎自检">自检 ✓</span>
+        <button id="btn-record" class="fold narrow-only" title="棋谱与兵力表">战况</button>
         <button id="btn-fold" class="fold" title="收起/展开设置">收起</button>
       </header>
       <div class="row seed">
@@ -54,7 +55,7 @@
         <label>红方 <select id="ctl-r"><option value="ai" selected>电脑</option><option value="human">我来下</option></select></label>
         <label>黑方 <select id="ctl-b"><option value="ai" selected>电脑</option><option value="human">我来下</option></select></label>
       </div>
-      <p class="hint">暗棋里双方电脑都看不见对方的兵种，只能靠交战结果推理。你接管一方时，视角会切到那一方：没认出的敌子蒙着布。轮到你时，点己方棋子再点目标点。右键拖动或滚轮切到自由视角，空格暂停。</p>
+      <p class="hint">暗棋里双方电脑都看不见对方的兵种，只能靠交战结果推理。你接管一方时，视角会切到那一方：没认出的敌子蒙着布。轮到你时，点己方棋子再点目标点。右键拖动或滚轮切到自由视角，空格暂停；触屏上双指一碰切到自由视角，单指转、双指缩放。</p>
       </div>
     </section>
 

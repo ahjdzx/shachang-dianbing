@@ -16,7 +16,8 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1714; color: var(--ink); }
-#scene { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+#scene { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: none; }
+.narrow-only { display: none; }
 
 .panel {
   position: fixed;
@@ -141,3 +142,24 @@ output { color: var(--ink); text-align: right; font-variant-numeric: tabular-num
 .moves li .r, .moves li .b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .moves li { grid-template-columns: 26px 1fr 1fr; }
 .panel.right { width: 300px; }
+
+/* ---- 手机竖屏：设置收成一条，战况做成底部抽屉，文字和按钮放大到好点 ---- */
+@media (max-width: 700px) {
+  .narrow-only { display: inline-block; }
+  button, select { min-height: 34px; font-size: 14px; }
+  .fold { padding: 2px 10px; font-size: 13px; }
+  #winbar { top: calc(8px + env(safe-area-inset-top)); width: calc(100vw - 20px); }
+  .panel { top: calc(40px + env(safe-area-inset-top)); padding: 10px 12px; }
+  .panel.left { left: 8px; right: 8px; width: auto; font-size: 13px; max-height: calc(100dvh - 150px); overflow-y: auto; }
+  /* 收起时只剩一行：标题、自检、战况、设置、暂停 */
+  .panel.left.folded { right: auto; display: flex; align-items: center; gap: 8px; padding: 6px 10px; overflow: visible; }
+  .panel.left.folded h1 { font-size: 17px; letter-spacing: 0.1em; }
+  .panel.left.folded .row.seed, .panel.left.folded .check { display: none; }
+  .panel.left.folded button.primary { min-width: 56px; }
+  .panel.right { display: none; }
+  .panel.right.open { display: flex; left: 8px; right: 8px; width: auto; top: auto; bottom: calc(78px + env(safe-area-inset-bottom)); height: 44dvh; }
+  .comment { bottom: calc(12px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); width: max-content; font-size: 14px; padding: 8px 16px; border-radius: 18px; }
+  .banner { width: 92vw; }
+  .banner .title { font-size: 40px; }
+  .banner .sub { font-size: 13px; }
+}

@@ -106,6 +106,7 @@ function makeFlag(color, text, w, h) {
   const back = new THREE.Mesh(geo, m.back);
   front.castShadow = true;
   const g = new THREE.Group();
+  g.rotation.order = "YXZ"; // 先绕旗杆转向（y），再绕旗面自己的横轴后仰（x）
   g.add(front, back);
   g.userData.flag = { geo, base: geo.attributes.position.array.slice(), w, phase: Math.random() * 6, front, back };
   return g;
@@ -335,19 +336,24 @@ export function setCloaked(actor, hidden) {
   }
 }
 
-// 旗面顺风展开：风向垂直于镜头视线时，旗面正对镜头
-export function flagTo(actor, dt, windYaw) {
+// 旗面顺风展开：风向垂直于镜头视线时，旗面正对镜头。
+// tilt 是旗面的后仰角：镜头从高处往下看时，立着的旗只剩一条边，把它仰起来才读得到字。
+export function flagTo(actor, dt, windYaw, tilt = 0) {
   if (windYaw === null || windYaw === undefined) return;
   const fl = actor.userData.flag;
   let d = windYaw - actor.rotation.y - fl.rotation.y;
   while (d > Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   fl.rotation.y += d * (1 - Math.exp(-dt * 2.5));
+  fl.rotation.x += (tilt - fl.rotation.x) * (1 - Math.exp(-dt * 4));
+  // 仰起来的小旗就是俯视图上的名牌：顺势放大到约 0.56 宽，手机上才认得出字。本来就大的军旗不再放大
+  const raised = Math.min(1, Math.abs(fl.rotation.x) / 1.1);
+  fl.scale.setScalar(1 + raised * (Math.max(1, 0.56 / fl.userData.flag.w) - 1));
 }
 
 // 待机：呼吸、轻摇、旗帜飘动；被碰到时摇晃一下（弹簧）
-export function idle(actor, t, dt, wind = 1, windYaw = null) {
-  flagTo(actor, dt, windYaw);
+export function idle(actor, t, dt, wind = 1, windYaw = null, tilt = 0) {
+  flagTo(actor, dt, windYaw, tilt);
   const u = actor.userData;
   // 地雷、军旗、炸弹是死物，不呼吸。蒙着布时照常呼吸：否则一眼就能从军帐里挑出它们
   const still = !u.cloaked && (u.type === "M" || u.type === "F" || u.type === "B");
