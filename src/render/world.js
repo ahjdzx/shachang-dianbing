@@ -18,7 +18,7 @@ export const BOARD_D = 13.6; // z: -6.8 .. 6.8
 export const BOARD_T = 0.3; // 棋盘厚度：棋盘面 y = 0，桌面 y = -0.3
 export const TABLE = { w: 17.4, d: 18, top: -BOARD_T, rimX: 8.3, rimZ: 8.6 };
 export const TRAY_X = 6.1;
-const TRAY = { w: 2.3, d: 7.2, cols: 3, dx: 0.68, dz: 0.82 };
+const TRAY = { w: 2.3, d: 7.2, cols: 3, rows: 9, dx: 0.68, dz: 0.76 }; // 3×9=27 格，装得下一方全部 25 子
 
 // 棋盘坐标 → 世界坐标。红方在近处（+z），x 为列。
 export const toWorld = (x, y) => new THREE.Vector3((x - 2) * CELL_X, 0, HALF - y * CELL_Z - (y >= HALF ? FRONT_GAP : 0));
@@ -338,6 +338,6 @@ export function createWorld(canvas) {
 // 托盘里的第 i 个位置：3 列 × 8 行，缩小摆放，一方 24 个阵亡的子正好装满
 export function traySlot(tray, i) {
   const col = i % TRAY.cols;
-  const row = Math.floor(i / TRAY.cols) % 8;
-  return new THREE.Vector3(tray.x + (col - 1) * TRAY.dx, TABLE.top + 0.08, -3.5 * TRAY.dz + row * TRAY.dz);
+  const row = Math.floor(i / TRAY.cols);
+  return new THREE.Vector3(tray.x + (col - 1) * TRAY.dx, TABLE.top + 0.08, (row - (TRAY.rows - 1) / 2) * TRAY.dz);
 }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 three；依赖 render/world 的 groundAt（粒子落地高度）。
- * [OUTPUT]: 导出 Effects（puff 扬尘、petalsFrom 花瓣、flash 闪光、blast 爆炸、update、clear）。
+ * [OUTPUT]: 导出 Effects（puff 扬尘、flash 闪光、blast 爆炸、update、clear）。
  * [POS]: sim 的特效。纯表现：粒子用 Math.random，不占用对局的种子随机流，也不影响任何状态。
  *        show 决定什么时候放什么，这里只管放得好看。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
@@ -48,17 +48,6 @@ export class Effects {
     // 火球：叠加混合
     this.fireMax = 160;
     this.fire = billboards(this.fireMax, new THREE.MeshBasicMaterial({ map: this.dot, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    // 花瓣：实例化的双面小片
-    this.petalMax = 500;
-    const petalGeo = new THREE.CircleGeometry(0.07, 6);
-    petalGeo.scale(1, 0.6, 1);
-    this.petals = new THREE.InstancedMesh(petalGeo, new THREE.MeshStandardMaterial({ color: "#f3a6b8", side: THREE.DoubleSide, roughness: 0.6, transparent: true, opacity: 0.95 }), this.petalMax);
-    this.petals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.petals.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.petalMax * 3), 3);
-    this.petals.count = 0;
-    this.petals.frustumCulled = false;
-    this.petals.castShadow = true;
-    scene.add(this.petals);
     // 撞击闪光：点光源 + 发光片
     this.flashLight = new THREE.PointLight("#ffd28a", 0, 6, 1.6);
     scene.add(this.flashLight);
@@ -73,7 +62,6 @@ export class Effects {
     this.ringAge = 99;
     this.ringSize = 1;
     this.m = new THREE.Matrix4();
-    this.q = new THREE.Quaternion();
     this.s = new THREE.Vector3();
     this.c = new THREE.Color();
   }
@@ -83,24 +71,6 @@ export class Effects {
       const a = Math.random() * Math.PI * 2;
       const sp = (0.6 + Math.random() * 1.4) * power;
       this.parts.push({ kind: "dust", color: DUST, p: at.clone().add(up(0.05)), v: new THREE.Vector3(Math.cos(a) * sp, 0.4 + Math.random() * 0.9 * power, Math.sin(a) * sp), age: 0, life: 0.9 + Math.random() * 0.7, size: 0.25 + Math.random() * 0.35 });
-    }
-  }
-
-  petalsFrom(at, count = 70, wind = new THREE.Vector3(0.6, 0, -0.2)) {
-    for (let i = 0; i < count; i++) {
-      const p = at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, Math.random() * 0.8, (Math.random() - 0.5) * 0.6));
-      const pink = Math.random();
-      this.parts.push({
-        kind: "petal",
-        p,
-        v: new THREE.Vector3((Math.random() - 0.5) * 1.2, 0.8 + Math.random() * 1.6, (Math.random() - 0.5) * 1.2),
-        rot: new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6),
-        spin: new THREE.Vector3(Math.random() * 6 - 3, Math.random() * 6 - 3, Math.random() * 6 - 3),
-        wind,
-        age: 0,
-        life: 2.2 + Math.random() * 1.6,
-        color: new THREE.Color().setHSL(0.95 + pink * 0.04, 0.7, 0.75 + pink * 0.1),
-      });
     }
   }
 
@@ -144,34 +114,11 @@ export class Effects {
     this.ring.scale.setScalar(0.2 + (1 - Math.pow(1 - rt, 3)) * this.ringSize);
     this.ring.material.opacity = 0.55 * (1 - rt);
 
-    let nd = 0, nf = 0, np = 0;
+    let nd = 0, nf = 0;
     const camQ = this.camera.quaternion;
     this.parts = this.parts.filter((pt) => (pt.age += dt) < pt.life);
     for (const pt of this.parts) {
       const t = pt.age / pt.life;
-      if (pt.kind === "petal") {
-        // 花瓣：重力 + 空气阻力 + 风，翻转着飘落
-        pt.v.y -= 2.2 * dt;
-        pt.v.lerp(pt.wind, 1 - Math.exp(-dt * 1.2));
-        pt.v.y = Math.max(pt.v.y, -0.7);
-        pt.p.addScaledVector(pt.v, dt);
-        const g = groundAt(pt.p.x, pt.p.z) + 0.01;
-        if (pt.p.y < g) {
-          pt.p.y = g;
-          pt.v.multiplyScalar(0.5);
-        }
-        pt.rot.x += pt.spin.x * dt;
-        pt.rot.y += pt.spin.y * dt;
-        pt.rot.z += pt.spin.z * dt;
-        if (np < this.petalMax) {
-          this.q.setFromEuler(pt.rot);
-          this.s.setScalar(t > 0.8 ? (1 - t) / 0.2 : 1);
-          this.m.compose(pt.p, this.q, this.s);
-          this.petals.setMatrixAt(np, this.m);
-          this.petals.setColorAt(np++, pt.color);
-        }
-        continue;
-      }
       const fire = pt.kind === "fire";
       // 扬尘受重力下沉，黑烟上升，火球很快减速
       pt.v.multiplyScalar(1 - (fire ? 5 : 2.2) * dt);
@@ -191,7 +138,7 @@ export class Effects {
         this.dust.setColorAt(nd++, pt.color);
       }
     }
-    for (const [mesh, n] of [[this.dust, nd], [this.fire, nf], [this.petals, np]]) {
+    for (const [mesh, n] of [[this.dust, nd], [this.fire, nf]]) {
       mesh.count = n;
       mesh.instanceMatrix.needsUpdate = true;
       mesh.instanceColor.needsUpdate = true;

@@ -445,11 +445,21 @@ export class Stage {
     this.emit({ type: "blast", kind, power });
   }
 
-  // 炸弹自己：在火球里直接消失，不留残骸
+  // 炸弹自己：在火球里没了影；等烟散开，再从烟里落进己方的盒子
   vanish(actor) {
     this.movers.delete(actor);
+    actor.userData.moving = true;
+    const rec = { actor };
+    this.loose.push(rec);
     const s0 = actor.scale.x;
-    this.run(tween(0.1, (t) => actor.scale.setScalar(s0 * (1 - t))), () => this.scene.remove(actor));
+    const self = this;
+    this.run(
+      (function* () {
+        yield* tween(0.1, (t) => actor.scale.setScalar(Math.max(0.001, s0 * (1 - t))));
+        yield* wait(0.9);
+        yield* self.stow(rec);
+      })(),
+    );
   }
 
   // 被打飞：交给刚体模拟，之后收走
@@ -474,34 +484,27 @@ export class Stage {
     while (!rec.body.asleep && t < 3.5) t += yield;
     yield* wait(0.45);
     this.world.remove(rec.body);
+    yield* this.stow(rec);
+  }
+
+  // 收子：抬离桌面、扶正、缩小，摆进同色的盒子（红子进红盒，黑子进黑盒）。
+  // 离开棋盘的子都走这一步，没有例外：盒子里有几个，这一方就丢了几个。
+  *stow(rec) {
     const a = rec.actor;
     const tray = this.trays[a.userData.color];
-    if (this.rng() < 0.55) {
-      // 抬离棋盘，放进己方托盘
-      const slot = traySlot(tray, tray.count++);
-      const p0 = a.position.clone();
-      const q0 = a.quaternion.clone();
-      const q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, a.userData.baseYaw, 0));
-      const s0 = a.scale.x;
-      const apex = Math.max(p0.y, slot.y) + 2.2;
-      yield* tween(1.0, (k) => {
-        const e = ease(k);
-        a.position.lerpVectors(p0, slot, e);
-        a.position.y = (1 - e) * p0.y + e * slot.y + Math.sin(Math.PI * e) * (apex - Math.max(p0.y, slot.y));
-        a.quaternion.slerpQuaternions(q0, q1, Math.min(1, e * 1.4));
-        a.scale.setScalar(s0 + (0.55 - s0) * e);
-      });
-      tray.pieces.push(a);
-    } else {
-      // 化作花瓣消散
-      this.fx.petalsFrom(a.position.clone().add(new THREE.Vector3(0, 0.3, 0)), 80);
-      const s0 = a.scale.x;
-      yield* tween(0.7, (k) => {
-        a.scale.setScalar(s0 * (1 - ease(k)));
-        a.position.y += 0.004;
-      });
-      this.scene.remove(a);
-    }
+    const slot = traySlot(tray, tray.count++);
+    const p0 = a.position.clone();
+    const q0 = a.quaternion.clone();
+    const q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, a.userData.baseYaw, 0));
+    const s0 = a.scale.x;
+    yield* tween(1.0, (k) => {
+      const e = ease(k);
+      a.position.lerpVectors(p0, slot, e);
+      a.position.y += Math.sin(Math.PI * e) * 2.2;
+      a.quaternion.slerpQuaternions(q0, q1, Math.min(1, e * 1.4));
+      a.scale.setScalar(s0 + (0.55 - s0) * e);
+    });
+    tray.pieces.push(a);
     this.loose.splice(this.loose.indexOf(rec), 1);
   }
 }
