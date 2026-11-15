@@ -135,7 +135,8 @@ export class Stage {
     return this.tasks.length > 0;
   }
 
-  update(dt) {
+  // dt 是对局时间（暂停时为 0）；real 是真实时间。暂停时棋局静止，但镜头还在动，旗面得继续朝向它
+  update(dt, real = dt) {
     this.time += dt;
     for (const task of this.tasks.slice()) {
       const r = task.gen.next(dt);
@@ -155,6 +156,7 @@ export class Stage {
         a.position.copy(u.home).add(u.offset);
       }
     }
+    if (dt === 0 && real > 0) for (const a of [...this.actors.values(), ...this.movers]) flagTo(a, real, this.windYaw, this.flagTilt);
     // 正在走的棋子旗子也照常飘
     if (dt > 0)
       for (const a of this.movers) {

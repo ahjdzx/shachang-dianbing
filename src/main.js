@@ -132,7 +132,9 @@ function intro(script = null) {
   say(script ? `重放种子 ${seed}` : `新的一局，种子 ${seed}`, script && script.events.length ? `按原局的 ${script.events.length} 处设置改动和你的走法精确重放` : `红方 ${armyLabel("r")}，黑方 ${armyLabel("b")} · ${match.settings.mode === "open" ? "明棋" : "暗棋"}`);
 }
 
-// 兵力表：认得出的按兵种计数，认不出的敌子只报个数
+// 兵力表：十二个兵种一列一个，红黑两行上下对照。满编、有损、打光三种状态靠明暗区分；
+// 认不出的敌子不占兵种格，只在行尾报个数。
+$("roster-head").innerHTML = "<b></b>" + TYPES.map((t) => `<span>${GLYPH[t]}</span>`).join("");
 function roster(color) {
   const alive = {};
   let fog = 0;
@@ -142,10 +144,12 @@ function roster(color) {
     if (visible(match, viewer(), s)) alive[p[1]] = (alive[p[1]] || 0) + 1;
     else fog++;
   }
-  const open = fog === 0;
-  let html = TYPES.filter((t) => open || alive[t]).map((t) => `<span class="${alive[t] ? "" : "gone"}">${GLYPH[t]}<i>${alive[t] || 0}/${COUNT[t]}</i></span>`).join("");
-  if (fog) html += `<span class="fog">暗子<i>×${fog}</i></span>`;
-  $("roster-" + color).innerHTML = html;
+  const cell = (t) => {
+    const n = alive[t] || 0;
+    if (fog && !n) return `<span class="unknown">·</span>`;
+    return `<span class="${n === 0 ? "gone" : n < COUNT[t] && !fog ? "hurt" : ""}">${n}</span>`;
+  };
+  $("roster-" + color).innerHTML = `<b>${SIDE[color]}</b>${TYPES.map(cell).join("")}${fog ? `<em>另有暗子 ${fog} 个</em>` : ""}`;
 }
 
 // 观众或局面变了：蒙布、棋谱、兵力表、胜率、双方简介全部按当前观众重画
@@ -196,6 +200,7 @@ $("btn-fold").addEventListener("click", () => $("record").classList.remove("open
 function setPaused(p) {
   paused = p;
   $("btn-pause").textContent = paused ? "继续" : "暂停";
+  $("btn-pause").setAttribute("aria-pressed", String(paused));
   status(paused ? "已暂停" : "");
 }
 $("speed").oninput = (e) => {
@@ -418,7 +423,7 @@ function frame(now) {
   // 镜头俯角超过约 50° 时（俯视、竖屏入座），旗面逐渐后仰到正对镜头；仰向哪一边取决于旗面此刻哪一面朝着镜头
   const pitch = Math.asin(Math.min(1, Math.max(-1, -camDir.y)));
   stage.flagTilt = (windYaw === wa ? 1 : -1) * pitch * THREE.MathUtils.smoothstep(pitch, 0.8, 1.15);
-  stage.update(sdt);
+  stage.update(sdt, dt);
   director.update(dt, stage.focus, !paused);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
