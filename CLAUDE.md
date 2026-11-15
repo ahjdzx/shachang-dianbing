@@ -17,6 +17,8 @@ package.json - 脚本：dev、build、preview、test、bench
 vite.config.js - 资源走相对路径，根路径和子路径都能部署
 index.html - 页面骨架：画布、左侧设置、右侧棋谱与兵力表、解说条
 .github/workflows/deploy.yml - 推送 main 后：跑测试 → 构建 → 发布到 GitHub Pages
+PRODUCT.md - 产品事实：给谁用、做什么、定位、必须守住的约束、没定下来的事。做产品取舍前先读它
+.impeccable/config.json - 设计工具的工作方式设置（新界面直接写代码，不先出效果图）
 </config>
 
 <law>
