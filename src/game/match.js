@@ -2,7 +2,7 @@
  * [INPUT]: 依赖 engine/junqi 的 createGame、setupBoard、play、outcome、legalMoves；依赖 ai/rng 的 makeRng；
  *          依赖 ai/knowledge 的 createKnowledge、learn、observe、identified；依赖 ai/brain 的 createArmy、think、winRate、fogRate；
  *          依赖 ai/commentary 的 describe、endComment
- * [OUTPUT]: createMatch、startTurn、branch、decide、commit、visible、runSync
+ * [OUTPUT]: createMatch、startTurn、branch、decide、commit、visible、runSync、DEFAULTS、LEVELS（三档难度）
  * [POS]: game 的唯一成员，把裁判（engine）和棋手（ai）串成一盘棋。commit() 是全项目唯一能改变对局状态的入口，只接受合法走法。
  *        它也是暗棋的守门人：电脑只拿得到 observe() 的视图；每步棋为全知、红方、黑方三种观众各备一份文字和胜率。
  *        选步的随机流按步派生，所以思考可以被丢弃重来而不破坏重放。仍然是纯逻辑，可在 Node 里无界面地跑完整盘。
@@ -12,16 +12,27 @@ import { RED, BLACK, createGame, setupBoard, play, outcome, legalMoves } from ".
 import { makeRng } from "../ai/rng.js";
 import { createKnowledge, learn, observe, identified } from "../ai/knowledge.js";
 import { createArmy, think, winRate, fogRate } from "../ai/brain.js";
+import { arrange } from "../ai/formations.js";
 import { describe, endComment } from "../ai/commentary.js";
 
 // mode：dark 暗棋（互相看不见兵种）/ open 明棋。一盘之内不变；temperature、depth 可以中途改。
-export const DEFAULTS = { temperature: 0.35, depth: 2, mode: "dark" };
+// seat：有人入座时是 { side, formation, mirror }——这一方用他亲手点的阵，原样摆出，不加随机变化。
+export const DEFAULTS = { temperature: 0.35, depth: 2, mode: "dark", seat: null };
+
+// 三档对手。档位只是温度和推演深度的预设；对手的性格和阵型仍由种子决定，并且对人保密。
+export const LEVELS = [
+  { key: "easy", name: "新手", note: "常走随手棋", temperature: 0.8, depth: 2 },
+  { key: "mid", name: "熟手", note: "正常发挥", temperature: 0.35, depth: 2 },
+  { key: "hard", name: "高手", note: "多想一步，少犯错", temperature: 0.1, depth: 3 },
+];
 
 // script：上一盘的「对局脚本」（初始设置 + 按步记录的设置改动和人类走子）。传入它就能精确重放。
 export function createMatch(seed, settings = {}, script = null) {
   const root = makeRng(seed);
   const initial = { ...DEFAULTS, ...(script ? script.settings : settings) };
   const armies = { r: createArmy(root.fork("army-r"), RED), b: createArmy(root.fork("army-b"), BLACK) };
+  // 入座的一方换成自己点的阵。电脑那一方照旧从种子来，所以换阵型不会改变对手
+  if (initial.seat) armies[initial.seat.side].formation = arrange(initial.seat.formation, initial.seat.mirror);
   const state = createGame(setupBoard(armies.r.formation.layout, armies.b.formation.layout));
   const open = initial.mode === "open";
   return {

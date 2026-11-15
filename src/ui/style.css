@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 依赖 index.html 里的元素 id 与 class
- * [OUTPUT]: 提供界面样式：设置面板、战况面板（兵力表、棋谱）、胜率条、解说牌、终局横幅，以及窄屏布局
+ * [OUTPUT]: 提供界面样式：设置面板、战况面板（兵力表、棋谱）、胜率条、解说牌、终局横幅、入座按钮与开局牌，以及窄屏布局
  * [POS]: ui 的唯一成员。只管覆盖在画布上的 DOM 外观，不含任何逻辑；三维场景的观感归 render。
  *        界面是桌边的漆器小件：深漆底、金线描边、朱印点题。它要退到棋盘后面，所以不抢色、不抢动。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
@@ -103,8 +103,8 @@ button:hover { background: rgba(255, 240, 214, 0.13); border-color: rgba(233, 19
 button:active { transform: translateY(1px); background: rgba(0, 0, 0, 0.25); }
 button.primary { min-width: 72px; background: rgba(233, 196, 106, 0.16); border-color: rgba(233, 196, 106, 0.5); color: #fff3d2; }
 button.primary:hover { background: rgba(233, 196, 106, 0.26); }
-/* 暂停中：按钮亮成实心金，一眼知道棋局停着 */
-button.primary[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: #2a1810; font-weight: 600; }
+/* 暂停中：金框加亮，一眼知道棋局停着。不用实心金——那是留给「坐下」和「开局」的 */
+button.primary[aria-pressed="true"] { background: rgba(233, 196, 106, 0.3); border-color: var(--gold); color: #fff6dc; box-shadow: inset 0 0 0 1px var(--gold); }
 button.ghost { min-height: 26px; padding: 2px 9px; font-size: 12px; color: var(--muted); background: transparent; }
 button.ghost:hover { color: var(--ink); }
 
@@ -196,12 +196,10 @@ input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
 #winbar .red { color: var(--red); text-align: right; }
 #winbar .black { color: var(--black); }
 
-/* ---- 解说牌 ---- */
+/* ---- 底部一摞：入座按钮在上，解说牌在下。间距归容器管，两件东西不会贴在一起 ---- */
+.dock { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 18px; width: max-content; max-width: min(640px, 70vw); pointer-events: none; }
+.dock > * { pointer-events: auto; }
 .comment {
-  position: fixed;
-  left: 50%;
-  bottom: 28px;
-  transform: translateX(-50%);
   background: var(--lacquer);
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -213,13 +211,12 @@ input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  width: max-content;
-  max-width: min(640px, 70vw);
+  max-width: 100%;
   text-align: center;
   text-wrap: balance;
   transition: transform 0.35s var(--ease);
 }
-.comment.pop { transform: translateX(-50%) scale(1.035); }
+.comment.pop { transform: scale(1.035); }
 .comment small { color: var(--muted); font-size: 11.5px; }
 .comment small:empty { display: none; }
 
@@ -245,8 +242,76 @@ input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
 .banner.hidden .title { transform: scaleX(1.18); }
 .banner.hidden .rule { transform: scaleX(0); }
 
+/* ---- 入座点兵：桌上的三种状态写在 body[data-mode] 上，各个零件据此显隐 ---- */
+.seated, .panel.seat { display: none; }
+body[data-mode="play"] .seated { display: inline-flex; }
+body[data-mode="play"] .demo-only { display: none; }
+body[data-mode="play"] #seat-info { flex: 1; color: var(--muted); }
+body:not([data-mode="demo"]) .sit { display: none; }
+/* 点兵时只留棋盘和开局牌：战况、解说、胜率都还没有内容 */
+body[data-mode="muster"] :is(#record, .comment, #winbar, #btn-record, #controls .row.play, #controls .row.seed) { display: none; }
+body[data-mode="muster"] .panel.seat { display: grid; }
+.panel.folded #btn-leave { display: none; }
+
+/* 全场唯一的实心金按钮：请人坐下 */
+.sit {
+  min-height: 46px;
+  padding: 8px 30px;
+  font: 400 19px/1 var(--kai);
+  letter-spacing: 0.14em;
+  color: #2a1810;
+  background: var(--gold);
+  border: 0;
+  border-radius: 99px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset, 0 12px 28px -8px rgba(0, 0, 0, 0.7), 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+.sit:hover { background: #f3d382; }
+.sit:active { transform: translateY(1px); background: #d9b35a; }
+
+/* 开局牌：靠在桌边，不挡己方半场 */
+.panel.seat { top: 50%; right: var(--s4); width: 316px; transform: translateY(-50%); gap: 14px; --from: 22px 0; animation: seat-in 0.7s var(--ease) both; }
+/* 牌跟着镜头一起到位：从桌边滑进来，不是凭空出现 */
+@keyframes seat-in { from { opacity: 0; translate: var(--from); } }
+.seat h2 { margin: 0; font: 400 24px/1 var(--kai); letter-spacing: 0.24em; color: var(--gold); }
+.seat header p { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+.pick { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: 6px; }
+.pick legend { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 0 6px; font-size: 12px; color: var(--muted); }
+.pick.sides, .pick.formations { grid-template-columns: 1fr 1fr; }
+.pick.levels { grid-template-columns: repeat(3, 1fr); }
+.pick label > input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.pick label > span {
+  display: grid;
+  place-items: center;
+  min-height: 38px;
+  padding: 0 6px;
+  font: 16px/1 var(--kai);
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  background: var(--well);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.pick label > span:hover { border-color: rgba(233, 196, 106, 0.45); }
+.pick label > input:checked + span { color: #fff3d2; background: rgba(233, 196, 106, 0.18); border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(233, 196, 106, 0.35); }
+.pick label:has(:focus-visible) > span { outline: 2px solid var(--gold); outline-offset: 2px; }
+.pick .note { grid-column: 1 / -1; margin: 0; min-height: 1.5em; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.seat .actions { gap: var(--s2); padding-top: 2px; }
+.seat .actions .primary { flex: 1; min-height: 40px; font: 400 18px/1 var(--kai); letter-spacing: 0.3em; text-indent: 0.3em; background: var(--gold); border-color: var(--gold); color: #2a1810; }
+.seat .actions .primary:hover { background: #f3d382; }
+.seat .actions .ghost { min-height: 40px; padding: 2px 14px; font-size: 13px; }
+
+/* 终局后的两个去向：只在人下完一盘时出现 */
+.after { display: none; gap: var(--s2); margin-top: 6px; pointer-events: auto; }
+body[data-mode="play"] .banner:not(.hidden) .after { display: flex; }
+.after button { min-height: 38px; padding: 6px 18px; background: rgba(26, 15, 11, 0.85); }
+.after .primary { background: var(--gold); border-color: var(--gold); color: #2a1810; font: 400 18px/1 var(--kai); letter-spacing: 0.16em; text-indent: 0.16em; }
+.after .primary:hover { background: #f3d382; }
+
 @media (prefers-reduced-motion: reduce) {
-  * { transition-duration: 0.01ms !important; }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 
 @media (max-width: 1100px) {
@@ -272,7 +337,21 @@ input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
   .panel.left.folded button.primary { min-width: 58px; min-height: 32px; }
   .panel.right { display: none; }
   .panel.right.open { display: flex; left: var(--s2); right: var(--s2); width: auto; top: auto; bottom: calc(92px + env(safe-area-inset-bottom)); max-height: 46dvh; }
-  .comment { bottom: calc(12px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); font-size: 14.5px; padding: 9px 18px; border-radius: 18px; }
+  .dock { bottom: calc(12px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); gap: 16px; }
+  .comment { font-size: 14.5px; padding: 9px 18px; border-radius: 18px; }
+  .sit { min-height: 48px; padding: 8px 34px; font-size: 20px; }
+  /* 开局牌压到约 340px 高：真机上有浏览器工具栏，可视高度比屏幕小得多。「开局」钉在牌底，内容再长也不会被挤出去 */
+  .panel.seat { top: auto; right: var(--s2); left: var(--s2); bottom: 8px; width: auto; transform: none; gap: 8px; padding: 12px 12px 0; max-height: min(60dvh, 400px); overflow-y: auto; --from: 0 28px; }
+  .seat header p { display: none; }
+  .seat h2 { font-size: 21px; }
+  .pick.sides legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .pick.formations { grid-template-columns: repeat(4, 1fr); }
+  .pick.formations label > span { font-size: 15px; letter-spacing: 0; padding: 0 2px; }
+  .pick label > span { min-height: 40px; }
+  .pick legend { padding-bottom: 4px; }
+  .seat .actions { position: sticky; bottom: 0; margin: 0 -12px; padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); background: #1c100c; border-top: 1px solid var(--line-soft); }
+  .seat .actions .primary, .seat .actions .ghost { min-height: 44px; }
+  .panel.left.folded #seat-info { display: none; }
   .banner { width: 92vw; }
   .banner .title { font-size: 42px; }
   .banner .sub { font-size: 13px; }

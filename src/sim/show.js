@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 three；依赖 engine/junqi 的 fileOf/rankOf；依赖 render/world 的 toWorld/traySlot；
  *          依赖 render/figures 的 createFigure/setCloaked/idle/flagTo/flutter/BLOCK；依赖本目录的 physics 与 fx。
- * [OUTPUT]: 导出 Stage（reset、perform、update、on、applyCloaks、actors、focus、windYaw、flagTilt、busy）。
+ * [OUTPUT]: 导出 Stage（reset、muster、perform、update、on、applyCloaks、actors、focus、windYaw、flagTilt、busy）。
  * [POS]: sim 的导演台，演出层对外的唯一入口。它把引擎已经判定的一步棋演出来：只读走法记录，从不写回对局。
  *        爆炸、挖雷这类会暴露兵种的演出，只在相应棋子没蒙布时才放；蒙着布就只按胜负演通用动作。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
@@ -119,6 +119,48 @@ export class Stage {
       this.actors.set(s, a);
     }
     this.focus = { kind: "idle" };
+  }
+
+  // 点兵：开局前，一方的棋子从现在的位置走到新阵。棋子还是那些棋子，只是换了格子：
+  // 按兵种配对，actors 表当场改好，动画随后追上——每个子起一个小跳，错开出发。
+  // 连点几次阵型时，旧的一轮让位给新的一轮，棋子从半空直接改道。
+  muster(board, color) {
+    const olds = new Map();
+    for (const [s, a] of this.actors) {
+      if (a.userData.color !== color) continue;
+      if (!olds.has(a.userData.code)) olds.set(a.userData.code, []);
+      olds.get(a.userData.code).push([s, a]);
+    }
+    for (const list of olds.values()) for (const [s] of list) this.actors.delete(s);
+    const round = (this.round = (this.round || 0) + 1);
+    let order = 0;
+    for (const [code, list] of olds) {
+      const seats = [];
+      for (let s = 0; s < board.length; s++) if (board[s] === code) seats.push(s);
+      list.sort((x, y) => x[0] - y[0]).forEach(([, a], i) => {
+        this.actors.set(seats[i], a);
+        const goal = at(seats[i]);
+        if (a.position.distanceTo(goal) > 0.01) this.run(this.hop(a, goal, round, order++ * 0.03));
+      });
+    }
+  }
+
+  *hop(actor, goal, round, delay) {
+    const u = actor.userData;
+    u.moving = true;
+    if (!this.calm) yield* wait(delay); // calm：系统要求减少动态效果，棋子直接到位
+    const from = actor.position.clone();
+    const lift = 0.3 + from.distanceTo(goal) * 0.1;
+    yield* tween(this.calm ? 0 : 0.5, (t) => {
+      if (this.round !== round) return;
+      const e = ease(t);
+      actor.position.lerpVectors(from, goal, e).setY(Math.sin(Math.PI * e) * lift);
+    });
+    if (this.round !== round) return; // 新一轮已经接手这个子
+    actor.position.copy(goal);
+    u.home = goal.clone();
+    u.offset.set(0, 0, 0);
+    u.moving = false;
   }
 
   // 迷雾：fn(格子号, 编码) 返回 true 表示对当前观众隐藏。只管站着的棋子；走着的、倒下的保持原样

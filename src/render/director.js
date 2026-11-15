@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 three 与 OrbitControls；读取演出层给的 focus（只读）和相机当前的视野、宽高比。不引用本项目的其他模块，棋盘尺寸以常量 BOUND/IDLE/TOP/SEAT 写在本文件。
- * [OUTPUT]: 导出 Director（setMode 四种模式 auto/free/top/seat、update、shake、obstacles 回调、onUserTakeover 回调）。
+ * [OUTPUT]: 导出 Director（setMode 四种模式 auto/free/top/seat、muster 开关、cover 开局牌遮挡比例、calm 减少动态效果、update、shake、obstacles 回调、onUserTakeover 回调）。
  * [POS]: render 的摄影师。演出层只说「现在发生什么」（focus），机位怎么摆由它决定。
  *        它不知道规则，也不知道迷雾：焦点里有什么就拍什么，所以泄密与否由给 focus 的一方把关。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
@@ -13,7 +13,12 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 // 机位活动范围：桌面上空。军棋盘比象棋盘深，所以 z 方向放得更开
 const BOUND = { x: 10, z: 13.5 };
 const IDLE = { radius: 16.5, height: 13.5, squash: 0.5 }; // 待机环绕：椭圆，长轴沿棋盘纵深
-const SEAT = { eye: new THREE.Vector3(0, 12.5, 17), look: new THREE.Vector3(0, 0, 1.2), tall: { fit: 1.12, lean: 0.42, look: 0.5 } }; // 入座：红方棋手身后的固定机位；黑方把 z 取反
+const SEAT = { eye: new THREE.Vector3(0, 12.5, 17), look: new THREE.Vector3(0, 0, 1.2), tall: { fit: 1.12, lean: 0.42, look: 0.5 } };
+// 点兵：开局牌占着屏幕一侧（竖屏占下半屏），镜头凑近己方半场，并把它让到牌的上方或旁边
+// 竖屏的视野又窄又高：己方半场最多铺满屏宽、占约三成屏高。所以凑到屏宽刚好装下棋盘的高度，近乎垂直往下看，
+// 再按开局牌盖住了多少屏幕（cover）算看点：让己方底线（edge，含木块的余量）正好停在牌的上沿之上。
+// 对方的军帐被顶栏裁掉也无妨。
+const MUSTER = { eye: new THREE.Vector3(1.7, 8.4, 13.2), look: new THREE.Vector3(1.7, 0, 2.4), tall: { fit: 1.0, lean: 0.2, edge: 6.7, gap: 0.035 } }; // 入座：红方棋手身后的固定机位；黑方把 z 取反
 // 俯视：高度按画面算，刚好装下。纵向要装下棋盘的深度；横向在宽屏上连两侧托盘一起装，竖屏上只保棋盘
 const TOP = { depth: 17.2, wide: 17, narrow: 8.7, lean: 0.094, look: new THREE.Vector3(0, 0, 0.25) };
 const WIDE = Math.tan((19 * Math.PI) / 180) * 1.6; // 机位是照 16:10、38° 视野调的：那时水平半视角的正切
@@ -53,6 +58,9 @@ export class Director {
     this.controls.enabled = false;
     this.onUserTakeover = null;
     this.seatSide = "r";
+    this.muster = false; // 入座之后、开局之前：机位换成点兵的构图
+    this.cover = 0.42; // 竖屏点兵时，开局牌从屏幕底边往上盖住的比例；由总控按实际布局给
+    this.calm = false; // 系统要求减少动态效果：固定机位（入座、俯视）直接到位，不滑过去
     // 自动导播和入座都是「程序掌镜」：用户一动手（右键拖动或滚轮）就交还给自由视角
     const handsOff = () => this.mode === "auto" || this.mode === "seat";
     dom.addEventListener("pointerdown", (e) => {
@@ -183,9 +191,17 @@ export class Director {
       const flip = this.seatSide === "b" ? -1 : 1;
       if (this.camera.aspect < 1) {
         // 竖屏：棋盘要铺满屏宽，手指才点得准。所以坐得高、看得陡，只向自己这边稍微后仰
-        const height = (SEAT.tall.fit * TOP.narrow) / (2 * tanH);
-        look = new THREE.Vector3(0, 0, SEAT.tall.look * flip);
-        eye = new THREE.Vector3(0, height, (SEAT.tall.look + height * SEAT.tall.lean) * flip);
+        const t = this.muster ? MUSTER.tall : SEAT.tall;
+        const height = (t.fit * TOP.narrow) / (2 * tanH);
+        // 底线要落在屏幕上的哪一行（-1 底边 … 1 顶边），反推看点离底线多远
+        const row = 2 * (this.cover + MUSTER.tall.gap) - 1;
+        const z = this.muster ? MUSTER.tall.edge + row * height * tanV : SEAT.tall.look;
+        look = new THREE.Vector3(0, 0, z * flip);
+        eye = new THREE.Vector3(0, height, (z + height * t.lean) * flip);
+      } else if (this.muster) {
+        // 开局牌在屏幕右侧，所以机位连同看点一起向画面右方平移，棋盘落在左边空处
+        eye = new THREE.Vector3(MUSTER.eye.x * flip, MUSTER.eye.y, MUSTER.eye.z * flip);
+        look = new THREE.Vector3(MUSTER.look.x * flip, MUSTER.look.y, MUSTER.look.z * flip);
       } else {
         eye = new THREE.Vector3(SEAT.eye.x, SEAT.eye.y, SEAT.eye.z * flip);
         look = new THREE.Vector3(SEAT.look.x, SEAT.look.y, SEAT.look.z * flip);
@@ -240,6 +256,10 @@ export class Director {
       // 被夹回桌面范围后若离看点太近，就沿视线往后、往上退
       const away = eye.clone().sub(look);
       if (away.length() < 5.5) eye.copy(look).addScaledVector(away.normalize(), 5.5);
+    }
+    if (this.calm && this.mode !== "auto") {
+      this.eye.snap(eye);
+      this.look.snap(look);
     }
     // 俯视时画面的「上」是棋盘远端，不是天：否则机位在收敛途中稍偏一点，整个画面就会歪
     this.tilt += ((this.mode === "top" ? 1 : 0) - this.tilt) * (1 - Math.exp(-dt * 6));

@@ -1,15 +1,19 @@
 /**
- * [INPUT]: 依赖 engine/junqi 的 selfTest、legalMoves、sq、TYPES、COUNT、GLYPH；依赖 game/match 的 createMatch、decide、commit、startTurn、branch、visible；
+ * [INPUT]: 依赖 engine/junqi 的 selfTest、legalMoves、sq、TYPES、COUNT、GLYPH；依赖 game/match 的 createMatch、decide、commit、startTurn、branch、visible、LEVELS；
+ *          依赖 ai/formations 的 FORMATIONS（阵型清单）；依赖 ui/seating 的 createSeating（开局牌）；
  *          依赖 ai/rng 的 makeRng、freshSeed；依赖 render/world 的 createWorld、toWorld、fromWorld；依赖 sim/show 的 Stage；依赖 render/director 的 Director
  * [OUTPUT]: 无导出。页面入口；在 window.__jq 上留一个调试把手
  * [POS]: 总控。回合流程：引擎裁决 → 电脑选择 → 演出 → 导播。各层只通过走法记录交流。
  *        它还决定「观众是谁」（全知 / 红方 / 黑方），据此挑文字、挑胜率、给棋子蒙布——暗棋的保密在这里落到画面上。
- *        适配屏幕也在这里：视野随宽高比变、旗面随镜头俯角后仰、轻点才算落子、窄屏默认收起设置。
+ *        入座流程也在这里：演示 → 点兵 → 对局，三种状态写在 body 的 data-mode 上，样式据此显隐各个零件。
+ *        适配屏幕也在这里：视野随宽高比变、旗面随镜头俯角后仰、轻点才算落子。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
  */
 import * as THREE from "three";
 import { selfTest, legalMoves, sq, N, TYPES, COUNT, GLYPH } from "./engine/junqi.js";
-import { createMatch, decide, commit, startTurn, branch, visible, DEFAULTS } from "./game/match.js";
+import { createMatch, decide, commit, startTurn, branch, visible, DEFAULTS, LEVELS } from "./game/match.js";
+import { FORMATIONS } from "./ai/formations.js";
+import { createSeating } from "./ui/seating.js";
 import { makeRng, freshSeed } from "./ai/rng.js";
 import { createWorld, toWorld, fromWorld } from "./render/world.js";
 import { Stage } from "./sim/show.js";
@@ -33,6 +37,8 @@ const { renderer, scene, camera, trays, pickPlane } = createWorld(canvas);
 const stage = new Stage(scene, camera, trays, makeRng("init"));
 const director = new Director(camera, canvas);
 director.obstacles = () => [...stage.actors.values()];
+// 系统要求减少动态效果时：点兵的走位和固定机位的滑动都直接到位（对局里的走子演出是棋的内容，不在此列）
+stage.calm = director.calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 // 竖屏时把垂直视野撑大，让水平视野不小于 6:5 画面时的宽度；否则手机上只剩一条窄缝，全是特写
@@ -56,7 +62,8 @@ let match = null;
 let seed = freshSeed();
 let paused = false;
 let speed = 1;
-let phase = "gap"; // gap | think | ready | human | show | over
+let mode = "demo"; // 桌上在做什么：demo 电脑自己下给人看 | muster 人已入座、正在点兵 | play 人在下
+let phase = "gap"; // 一步棋走到哪：gap | think | ready | human | show | over；点兵时是 muster，谁都不走
 let gap = 1.2;
 let thinker = null;
 let thinkStart = 0;
@@ -68,18 +75,20 @@ let windYaw = 0;
 // 终局后一切亮开，所以观众一律按全知算
 const viewer = () => (match.result.over ? "all" : view);
 
-function newGame(s, script = null) {
+// reform：点兵时换阵型，棋子还是原来那些，只让己方走到新位置，不整盘重摆
+function newGame(s, script = null, reform = false) {
   seed = s;
   match = createMatch(seed, { ...settings }, script);
   if (script) showSettings(match.settings);
-  stage.reset(match.state.board, makeRng(seed).fork("show"));
+  if (reform) stage.muster(match.state.board, settings.seat.side);
+  else stage.reset(match.state.board, makeRng(seed).fork("show"));
   $("seed").textContent = seed;
   intro(script);
   $("banner").classList.add("hidden");
   thinker = null;
   ready = null;
   clearMarks();
-  phase = "gap";
+  phase = mode === "muster" ? "muster" : "gap";
   gap = 1.4;
   refresh();
 }
@@ -124,6 +133,8 @@ function addMove(rec, ply) {
 // 一方的简介。对手的性格和阵型也要保密：每种性格只配两套阵型，报出性格就等于报出了雷和旗的摆法
 function armyLabel(color) {
   const v = viewer(), a = match.armies[color];
+  // 人坐的那一方没有「性格」可言：只报他自己点的阵
+  if (mode !== "demo" && settings.seat?.side === color) return `你 · ${a.formation.name}`;
   return v === "all" || v === color ? `${a.persona.name} · ${a.formation.name}` : "对手保密";
 }
 
@@ -167,7 +178,77 @@ function refresh() {
 }
 
 $("btn-new").onclick = () => newGame(freshSeed());
-$("btn-replay").onclick = () => newGame(seed, match.script);
+$("btn-replay").onclick = () => mode !== "muster" && newGame(seed, match.script);
+
+// ---- 入座点兵 ------------------------------------------------------------------------
+// 演示 →（我来下一盘）→ 点兵：选执子、阵型、对手 →（开局）→ 对局 →（再来一盘 / 观战 / 离座）
+function setMode(m) {
+  mode = m;
+  document.body.dataset.mode = m;
+}
+function setControl(human) {
+  for (const c of ["r", "b"]) {
+    control[c] = c === human ? "human" : "ai";
+    $("ctl-" + c).value = control[c];
+  }
+}
+const levelOf = (key) => LEVELS.find((l) => l.key === key);
+const seating = createSeating($("seat"), {
+  formations: Object.entries(FORMATIONS).map(([name, f]) => ({ name, note: f.note })),
+  levels: LEVELS,
+  // 换阵型或镜像：己方走位；换执子方：整盘重摆；换对手：棋盘不变，开局时才生效
+  onChange: (what) => what !== "level" && muster(what === "side" ? "reset" : "reform"),
+  onStart: startPlay,
+  onCancel: leave,
+});
+
+// how：reseed 换一盘新的 | reset 同一盘整盘重摆 | reform 同一盘只让己方走位
+function muster(how) {
+  const { side, formation, mirror } = seating.seat;
+  setMode("muster");
+  setPaused(false);
+  setControl(null);
+  settings.seat = { side, formation, mirror };
+  view = side; // 先定观众再开局：对手从第一眼起就蒙着布
+  $("view").value = side;
+  newGame(how === "reseed" ? freshSeed() : seed, null, how === "reform");
+  director.muster = true;
+  director.setMode("seat", side);
+  requestAnimationFrame(fitMuster);
+}
+// 开局牌盖住了屏幕下方多少：竖屏点兵时，导播据此把己方半场让到牌的上沿之上
+function fitMuster() {
+  // offsetTop 是排版位置，不受进场动画的位移影响
+  if (mode === "muster") director.cover = 1 - $("seat").offsetTop / window.innerHeight;
+}
+window.addEventListener("resize", fitMuster);
+
+function startPlay() {
+  const { side, level } = seating.seat;
+  const lv = levelOf(level);
+  showSettings({ ...settings, temperature: lv.temperature, depth: lv.depth });
+  setMode("play");
+  setControl(side);
+  newGame(seed, null, true); // 同一盘、同一阵，带上选定的难度正式开局；棋子已经在位
+  $("seat-info").textContent = `你执${SIDE[side]} · 对手${lv.name}`;
+  director.muster = false;
+  director.setMode("seat", side);
+}
+
+function leave() {
+  setMode("demo");
+  setControl(null);
+  showSettings({ ...settings, temperature: DEFAULTS.temperature, depth: DEFAULTS.depth, seat: null });
+  setView("all");
+  director.muster = false;
+  director.setMode("auto");
+  newGame(freshSeed());
+}
+$("btn-sit").onclick = $("btn-again").onclick = () => {
+  seating.sync();
+  muster("reseed");
+};
+$("btn-watch").onclick = $("btn-leave").onclick = leave;
 
 // 界面显示某组设置（重放时跟随原局）
 function showSettings(st) {
@@ -190,9 +271,9 @@ function setFolded(folded) {
   $("btn-fold").textContent = folded ? "设置" : "收起";
 }
 $("btn-fold").onclick = () => setFolded(!$("controls").classList.contains("folded"));
-// 窄屏：设置默认收起，把画面让给棋盘；棋谱和兵力表做成「战况」抽屉，和设置面板不同时展开
-const narrow = window.matchMedia("(max-width: 700px)");
-if (narrow.matches) setFolded(true);
+// 设置默认收起，把画面让给棋盘：来的多半是下棋的人，种子、温度、深度是行家才动的东西。
+// 窄屏上棋谱和兵力表做成「战况」抽屉，和设置面板不同时展开
+setFolded(true);
 $("btn-record").onclick = () => {
   if ($("record").classList.toggle("open")) setFolded(true);
 };
@@ -219,7 +300,7 @@ $("depth").onchange = (e) => {
 // 明棋 / 暗棋一盘之内不能变：同一种子、同一布阵，换个规则重新开
 $("mode").onchange = (e) => {
   settings.mode = e.target.value;
-  newGame(seed);
+  newGame(seed, null, mode === "muster");
 };
 function setView(v) {
   view = v;
@@ -253,7 +334,8 @@ for (const c of ["r", "b"]) {
   };
 }
 window.addEventListener("keydown", (e) => {
-  if (e.key === " " && e.target.tagName !== "INPUT" && e.target.tagName !== "SELECT") {
+  // 空格暂停。焦点在控件上时空格是在按那个控件；点兵时棋局还没开始，没有可暂停的东西
+  if (e.key === " " && mode !== "muster" && !["INPUT", "SELECT", "BUTTON", "SUMMARY"].includes(e.target.tagName)) {
     e.preventDefault();
     setPaused(!paused);
   }
@@ -371,12 +453,13 @@ function play(choice) {
 function finish() {
   phase = "over";
   const r = match.result;
-  const title = r.winner ? `${SIDE[r.winner]}方胜` : "和棋";
+  const me = mode === "play" ? settings.seat.side : null; // 人在下时，胜负从他的座位上说
+  const title = !r.winner ? "和棋" : me ? (r.winner === me ? "你赢了" : "你输了") : `${SIDE[r.winner]}方胜`;
   $("banner-title").textContent = title;
   $("banner-sub").textContent = `${r.reason} · 共 ${match.log.length} 步 · 种子 ${seed}`;
   $("banner").classList.remove("hidden");
   say(`${title}：${r.reason}`, "终局，双方棋子全部亮开");
-  status($("auto-next").checked ? "稍后自动开始新的一局" : "对局结束");
+  status(!me && $("auto-next").checked ? "稍后自动开始新的一局" : "对局结束");
   refresh();
   const last = match.log[match.log.length - 1];
   const at = last ? last.to : sq(2, 5);
@@ -408,7 +491,7 @@ function frame(now) {
       const c = ready.choice;
       ready = null;
       play(c);
-    } else if (phase === "over" && $("auto-next").checked) {
+    } else if (phase === "over" && mode === "demo" && $("auto-next").checked) {
       overTimer -= sdt;
       if (overTimer <= 0) newGame(freshSeed());
     }

@@ -7,7 +7,7 @@ src/ai/ - 棋手：种子随机数、暗棋信念、阵型库、估值、推演�
 src/game/ - 一盘棋：串起裁判与棋手。commit() 是唯一能改变对局状态的入口
 src/sim/ - 演出：把已判定的一步棋演出来（协程、刚体、特效）
 src/render/ - 画面：桌子与棋盘、十二个兵种的人偶、自动导播
-src/ui/ - 覆盖在画布上的界面样式
+src/ui/ - 覆盖在画布上的界面：样式，以及入座点兵用的开局牌
 src/main.js - 总控：回合流程，决定观众是谁（全知 / 红方 / 黑方）
 test/ - 规则关卡、AI 关卡、对局场
 </directory>
@@ -22,7 +22,7 @@ PRODUCT.md - 产品事实：给谁用、做什么、定位、必须守住的约�
 </config>
 
 <law>
-依赖严格单向：engine ← ai ← game ← main；engine ← render ← sim ← main。render、sim 不引用 ai、game。
+依赖严格单向：engine ← ai ← game ← main；engine ← render ← sim ← main。render、sim 不引用 ai、game。ui 不引用任何其他模块，数据由 main 传入。
 暗棋边界：电脑（ai/brain）只拿 ai/knowledge 的 observe() 视图，读不到敌方兵种。画面层持有真实棋子，由 main 按 game/match 的 visible() 给没认出的敌子蒙布；文字、胜率按观众各出一份。
 演出不改对局：sim、render 只读走法记录。胜负永远由 engine 判定。
 随机可复现：布阵、抽样、选步只从 ai/rng 的种子流取数。同一种子加同一份对局脚本，复现同一盘棋。

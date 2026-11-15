@@ -7,7 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%235a1d14'/><text x='32' y='46' font-size='40' text-anchor='middle' fill='%23e9c46a' font-family='serif'>旗</text></svg>" />
     <link rel="stylesheet" href="/src/ui/style.css" />
   </head>
-  <body>
+  <body data-mode="demo">
     <canvas id="scene" aria-label="军棋棋盘"></canvas>
 
     <div id="winbar" role="img" aria-label="胜率">
@@ -31,7 +31,9 @@
       </div>
       <div class="row play">
         <button id="btn-pause" class="primary" aria-pressed="false">暂停</button>
-        <label class="check"><input type="checkbox" id="auto-next" checked />打完自动开新局</label>
+        <label class="check demo-only"><input type="checkbox" id="auto-next" checked />打完自动开新局</label>
+        <span class="seated" id="seat-info"></span>
+        <button id="btn-leave" class="ghost seated" title="这盘作废，回到观战">离座</button>
       </div>
       <div class="more">
         <label class="slider"><span>速度</span><input type="range" id="speed" min="0.25" max="3" step="0.05" value="1" /><output id="speed-out">1.0×</output></label>
@@ -79,8 +81,15 @@
       <ol id="moves" class="moves"></ol>
     </section>
 
-    <div id="comment" class="comment" aria-live="polite"><span id="comment-text">桌上的两支军队已经列好阵</span><small id="comment-sub"></small></div>
-    <div id="banner" class="banner hidden"><div class="title" id="banner-title"></div><div class="rule"></div><div class="sub" id="banner-sub"></div></div>
+    <section class="panel seat" id="seat" aria-label="点兵"></section>
+    <!-- 底部一摞：入座按钮在上，解说牌在下，两者之间的距离由容器定 -->
+    <div class="dock">
+      <button id="btn-sit" class="sit">我来下一盘</button>
+      <div id="comment" class="comment" aria-live="polite"><span id="comment-text">桌上的两支军队已经列好阵</span><small id="comment-sub"></small></div>
+    </div>
+    <div id="banner" class="banner hidden"><div class="title" id="banner-title"></div><div class="rule"></div><div class="sub" id="banner-sub"></div>
+      <div class="after"><button id="btn-again" class="primary">再来一盘</button><button id="btn-watch">观战</button></div>
+    </div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -15,5 +15,6 @@ fx.js: 特效 Effects：扬尘、黑烟、火球、花瓣、闪光、冲击环�
 - 演出里影响观感走向的随机（打飞的力度、进托盘还是化花瓣）用 Stage 的种子随机数 rng；纯粒子抖动用 Math.random。
 - 阵亡的棋子保持蒙布状态倒地、进托盘。暗棋不揭示死子。
 - Stage 发出的事件：move-start、move-end、knock、blast、dig、flag。
+- muster 是开局前的事：它只挪己方棋子的位置，不走引擎，也不产生走法记录。对局开始后不能再调用它。
 
 [PROTOCOL]: Update this header on change, then check CLAUDE.md

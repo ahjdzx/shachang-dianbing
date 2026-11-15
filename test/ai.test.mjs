@@ -4,10 +4,10 @@
  * [POS]: test 的 AI 关卡。重点守三条线：信念永远包含真相、电脑看不到对方兵种、同一种子（连同脚本）精确复现。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
  */
-import { runSync, createMatch, decide, commit, startTurn, visible } from "../src/game/match.js";
+import { runSync, createMatch, decide, commit, startTurn, visible, LEVELS } from "../src/game/match.js";
 import { createKnowledge, learn, observe, sampleWorld, identified } from "../src/ai/knowledge.js";
 import { searchSync, MATE } from "../src/ai/search.js";
-import { FORMATIONS, deploy } from "../src/ai/formations.js";
+import { FORMATIONS, deploy, arrange } from "../src/ai/formations.js";
 import { PERSONAS } from "../src/ai/brain.js";
 import { makeRng } from "../src/ai/rng.js";
 import * as J from "../src/engine/junqi.js";
@@ -40,7 +40,8 @@ const bestOf = (b, side, depth = 2) => {
 console.log("阵型库");
 {
   const names = Object.keys(FORMATIONS);
-  ok(names.every((n) => J.layoutError(J.parseLayout(FORMATIONS[n])) === null), `${names.length} 套阵型全部合规`, names.join(" "));
+  ok(names.every((n) => J.layoutError(arrange(n).layout) === null && J.layoutError(arrange(n, true).layout) === null), `${names.length} 套阵型原样和镜像都合规`, names.join(" "));
+  ok(names.every((n) => FORMATIONS[n].note.length > 0 && FORMATIONS[n].note.length <= 18), "每套阵型有一句给人看的说明");
   ok(PERSONAS.every((p) => p.formations.every((f) => f in FORMATIONS)), "每种性格偏好的阵型都在库里");
   let bad = 0, trapped = 0;
   const seen = new Set();
@@ -224,6 +225,33 @@ ok(a.log.some((e) => /暗子/.test(e.text.r.notation)) && a.log.every((e) => !/�
 }
 console.log("   SEED01:", a.armies.r.persona.name, a.armies.r.formation.name, "/", a.armies.b.persona.name, a.armies.b.formation.name);
 console.log("   解说示例:", a.log.map((e) => e.text.all.comment).filter((c) => /！|铁路|行营/.test(c)).slice(0, 6).join(" | "));
+
+console.log("入座点兵");
+{
+  const seat = { side: "b", formation: "空城计", mirror: true };
+  const plain = createMatch("SEAT01", { depth: 2 });
+  const seated = createMatch("SEAT01", { depth: 2, seat });
+  const want = arrange("空城计", true).layout;
+  const got = want.map((_, i) => seated.state.board[J.ownSq("b", J.fileOf(i), J.rankOf(i))]);
+  ok(got.every((p, i) => (want[i] ? p === "b" + want[i] : p === null)), "入座一方摆出的就是他点的阵，原样、不加随机变化");
+  const reds = (m) => m.state.board.slice(0, J.N / 2).join();
+  ok(reds(plain) === reds(seated), "换阵型不改变对手：电脑那一方仍由种子决定");
+  ok(seated.script.settings.seat.formation === "空城计", "入座信息记进对局脚本");
+  // 人执黑下几步，再凭脚本重放：布阵和每一步都要对得上
+  const drive = (m) => {
+    while (!m.result.over && m.log.length < 30) {
+      const { scripted } = startTurn(m, { temperature: m.settings.temperature, depth: m.settings.depth });
+      if (scripted) commit(m, scripted);
+      else if (m.state.side === "b" && !m.replay) commit(m, { move: J.legalMoves(m.state.board, "b")[m.log.length % 3], kind: "human" });
+      else commit(m, finish(decide(m)));
+    }
+    return m;
+  };
+  const first = drive(seated);
+  const again = drive(createMatch("SEAT01", { depth: 3, temperature: 0.9 }, first.script));
+  ok(first.log.map((e) => e.notation).join() === again.log.map((e) => e.notation).join() && J.keyOf(first.state.board, "r") === J.keyOf(again.state.board, "r"), "重放连人的布阵一起复现", `${first.log.length} 步`);
+  ok(LEVELS.length === 3 && LEVELS.every((l) => l.name && l.depth >= 1 && l.temperature >= 0 && l.temperature <= 1), "三档难度齐全");
+}
 
 console.log("精确重放（中途改设置 + 人类走子）");
 {
