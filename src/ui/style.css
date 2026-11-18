@@ -153,6 +153,28 @@ input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
 .hint summary:hover { color: var(--muted); }
 .hint p { margin: var(--s2) 0 0; }
 
+/* 军棋规则：等级表从大到小，字号递减直接把大小画出来 */
+.rules .rank { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 3px; margin: var(--s2) 0 0; }
+.rules .rank i {
+  font: 400 13px/1 var(--kai);
+  font-style: normal;
+  color: var(--ink);
+  background: var(--gold-dim);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  padding: 3px 6px;
+  letter-spacing: 0.04em;
+}
+.rules .rank i:nth-child(1) { font-size: 16px; color: var(--gold); }
+.rules .rank i:nth-child(2) { font-size: 15px; }
+.rules .rank i:nth-child(3) { font-size: 14px; }
+.rules .rank i:nth-child(4) { font-size: 13.5px; }
+.rules .rank i:nth-child(5) { font-size: 13px; }
+.rules .rank i:nth-child(6) { font-size: 12.5px; }
+.rules .rank i:nth-child(7) { font-size: 12px; }
+.rules .rank i:nth-child(8) { font-size: 11.5px; }
+.rules .rank i:nth-child(9) { font-size: 11px; color: var(--muted); }
+
 /* ---- 战况：双方、兵力表、棋谱 ---- */
 .armies { display: grid; gap: var(--s1); }
 .army { display: flex; gap: var(--s2); align-items: baseline; }

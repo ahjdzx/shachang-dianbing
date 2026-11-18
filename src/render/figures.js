@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 three；依赖 engine/junqi 的 NAMES（两字名）与 GLYPH（单字）。
- * [OUTPUT]: 导出 BLOCK（木块尺寸）、createFigure、setCloaked、idle、flagTo、flutter。
+ * [OUTPUT]: 导出 BLOCK（木块尺寸）、createFigure、setCloaked、setStuck、idle、flagTo、flutter。
  * [POS]: render 的棋子工厂。十二个兵种的造型只在这里定义；sim/show 拿到 actor 后只动它的位置、朝向和 parts。
  *        迷雾也在这里收口：蒙布后的棋子外形完全相同，个头、旗子、木块都不泄露兵种。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
@@ -267,6 +267,56 @@ function tent(a, g) {
   g.add(mesh(cone(0.27, 0.52, 10), mat(a.tent, 0.85), 0, 0.26, 0));
   g.add(mesh(cyl(0.285, 0.29, 0.035, 10), mat(a.trim, 0.45, 0.3), 0, 0.02, 0));
   g.add(mesh(sph(0.04, 8), mat(a.trim, 0.3, 0.6), 0, 0.54, 0));
+}
+
+// 「困」字小牌：免战牌式的木牌，双面各贴一张字，前后左右都读得到
+const stuckSign = () =>
+  memo("stuck-sign", () => {
+    const c = document.createElement("canvas");
+    c.width = 128;
+    c.height = 96;
+    const g = c.getContext("2d");
+    g.fillStyle = "#8e1d12";
+    g.fillRect(0, 0, 128, 96);
+    g.strokeStyle = "#f2c14e";
+    g.lineWidth = 7;
+    g.strokeRect(6, 6, 116, 84);
+    g.fillStyle = "#f6e7c4";
+    g.font = `bold 62px ${KAI}`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText("困", 64, 54);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    return new THREE.MeshStandardMaterial({ map: t, roughness: 0.6, side: THREE.DoubleSide });
+  });
+
+// 困在大本营：木块前角插一块红漆「困」牌，一眼看出这枚子从此不能动。军旗本来就不能动，不插
+export function setStuck(actor, on) {
+  const u = actor.userData;
+  if (u.type === "F") return;
+  if (!!u.stuck === !!on) return;
+  u.stuck = !!on;
+  if (!u.stuckSign) {
+    const g = new THREE.Group();
+    g.add(mesh(cyl(0.012, 0.012, 0.2, 6), mat("#5a3a1e", 0.6), 0, 0.1, 0));
+    const plaque = memo("stuck-plaque", () => new THREE.PlaneGeometry(0.3, 0.22));
+    const m = stuckSign();
+    for (const face of [0, Math.PI]) {
+      const p = new THREE.Mesh(plaque, m);
+      p.position.y = 0.25;
+      p.rotation.y = face;
+      p.castShadow = true;
+      g.add(p);
+    }
+    // 前角（避开旗杆所在的左后角）；前后各一张牌面，两边玩家都读得到
+    g.position.set(0.29, BLOCK.h, 0.14);
+    g.rotation.x = -0.22;
+    u.stuckSign = g;
+    actor.add(g);
+  }
+  u.stuckSign.visible = u.stuck;
 }
 
 export function createFigure(code) {

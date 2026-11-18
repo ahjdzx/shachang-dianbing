@@ -168,7 +168,10 @@ function roster(color) {
 function refresh() {
   const v = viewer();
   // 演出途中不动蒙布：这时棋盘已是走完后的样子，而将要阵亡的棋子还站在台上，按格子判断会揭错人。演完会再刷一次
-  if (phase !== "show") stage.applyCloaks((s) => !visible(match, v, s));
+  if (phase !== "show") {
+    stage.applyCloaks((s) => !visible(match, v, s));
+    stage.applyStuck((s) => HQ[s]); // 站在大本营上的就是不能动了，位置是公开信息，不泄密
+  }
   $("moves").innerHTML = "";
   match.log.forEach((rec, i) => addMove(rec, i + 1));
   roster("r");

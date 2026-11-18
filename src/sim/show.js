@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 three；依赖 engine/junqi 的 fileOf/rankOf；依赖 render/world 的 toWorld/traySlot；
  *          依赖 render/figures 的 createFigure/setCloaked/idle/flagTo/flutter/BLOCK；依赖本目录的 physics 与 fx。
- * [OUTPUT]: 导出 Stage（reset、muster、perform、update、on、applyCloaks、actors、focus、windYaw、flagTilt、busy）。
+ * [OUTPUT]: 导出 Stage（reset、muster、perform、update、on、applyCloaks、applyStuck、actors、focus、windYaw、flagTilt、busy）。
  * [POS]: sim 的导演台，演出层对外的唯一入口。它把引擎已经判定的一步棋演出来：只读走法记录，从不写回对局。
  *        爆炸、挖雷这类会暴露兵种的演出，只在相应棋子没蒙布时才放；蒙着布就只按胜负演通用动作。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
@@ -11,7 +11,7 @@
 import * as THREE from "three";
 import { fileOf, rankOf } from "../engine/junqi.js";
 import { toWorld, traySlot } from "../render/world.js";
-import { createFigure, setCloaked, idle, flagTo, flutter, BLOCK } from "../render/figures.js";
+import { createFigure, setCloaked, setStuck, idle, flagTo, flutter, BLOCK } from "../render/figures.js";
 import { Body, World } from "./physics.js";
 import { Effects } from "./fx.js";
 
@@ -166,6 +166,11 @@ export class Stage {
   // 迷雾：fn(格子号, 编码) 返回 true 表示对当前观众隐藏。只管站着的棋子；走着的、倒下的保持原样
   applyCloaks(fn) {
     for (const [s, a] of this.actors) setCloaked(a, !!fn(s, a.userData.code));
+  }
+
+  // 困在大本营：fn(格子号, 编码) 返回 true 表示这枚子从此不能动，插上「困」牌
+  applyStuck(fn) {
+    for (const [s, a] of this.actors) setStuck(a, !!fn(s, a.userData.code));
   }
 
   run(gen, done) {
