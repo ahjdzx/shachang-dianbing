@@ -30,6 +30,9 @@ const KID_REASON = (r) =>
   : /没有交战/.test(r) ? "好久好久都没打仗，握握手算平局"
   : /上限/.test(r) ? "这盘棋下得太长啦，算平局"
   : r;
+// 「爱冒险」滑杆的大白话档位：数值是给行家看的，小朋友只看词
+const tempWord = (t) =>
+  t < 0.15 ? "特别稳重" : t < 0.35 ? "稳重" : t < 0.6 ? "有点冒险" : t < 0.85 ? "爱冒险" : "特别爱冒险";
 
 // ---- 自检 ---------------------------------------------------------------------------
 const test = selfTest();
@@ -286,7 +289,7 @@ $("btn-watch").onclick = $("btn-leave").onclick = leave;
 function showSettings(st) {
   Object.assign(settings, st);
   $("temp").value = String(st.temperature);
-  $("temp-out").textContent = st.temperature.toFixed(2);
+  $("temp-out").textContent = tempWord(st.temperature);
   $("depth").value = String(st.depth);
   $("mode").value = st.mode;
 }
@@ -303,7 +306,7 @@ function setFolded(folded) {
   $("btn-fold").textContent = folded ? "设置" : "收起来";
 }
 $("btn-fold").onclick = () => setFolded(!$("controls").classList.contains("folded"));
-// 设置默认收起，把画面让给棋盘：来的多半是下棋的人，种子、温度、深度是行家才动的东西。
+// 设置默认收起，把画面让给棋盘：来的多半是下棋的人，种子、爱冒险、电脑多厉害是行家才动的东西。
 // 窄屏上棋谱和兵力表做成「战况」抽屉，和设置面板不同时展开
 setFolded(true);
 $("btn-record").onclick = () => {
@@ -322,7 +325,7 @@ $("speed").oninput = (e) => {
 };
 $("temp").oninput = (e) => {
   settings.temperature = Number(e.target.value);
-  $("temp-out").textContent = settings.temperature.toFixed(2);
+  $("temp-out").textContent = tempWord(settings.temperature);
   userChanged(); // 新设置从下一回合开始生效，并记进对局脚本
 };
 $("depth").onchange = (e) => {
@@ -476,7 +479,7 @@ function play(choice) {
   const rec = commit(match, choice);
   const v = viewer();
   addMove(rec, match.log.length);
-  say(rec.text[v].comment, rec.replayed ? "重放你当时的走法" : rec.kind === "blunder" ? "高温下的随机失误" : rec.kind === "soft" ? "温度让它选了次优的一步" : "");
+  say(rec.text[v].comment, rec.replayed ? "重放你当时的走法" : rec.kind === "blunder" ? "太爱冒险，走错啦" : rec.kind === "soft" ? "爱冒险让它走了一步不太好的棋" : "");
   setWin(rec.win[v]);
   status("");
   phase = "show";
