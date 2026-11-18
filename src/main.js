@@ -22,6 +22,14 @@ import { Director } from "./render/director.js";
 
 const $ = (id) => document.getElementById(id);
 const SIDE = { r: "红", b: "黑" };
+// 终局原因的大白话版：引擎里的原因是给测试和棋谱看的，弹窗上说小朋友听得懂的话
+const KID_REASON = (r) =>
+  r === "夺旗" ? "抢到了对方的军旗"
+  : r === "无棋可走" ? "一个能走的棋子都没有啦"
+  : r === "三次重复局面" ? "双方把一样的棋走了一遍又一遍，算平局"
+  : /没有交战/.test(r) ? "好久好久都没打仗，握握手算平局"
+  : /上限/.test(r) ? "这盘棋下得太长啦，算平局"
+  : r;
 
 // ---- 自检 ---------------------------------------------------------------------------
 const test = selfTest();
@@ -286,7 +294,7 @@ function showSettings(st) {
 function userChanged() {
   if (match?.replay) {
     branch(match);
-    status("已偏离重放，从这里起按你的设置继续");
+    status("已偏离重放，从这一步起按现在的玩法继续");
   }
 }
 $("btn-pause").onclick = () => setPaused(!paused);
@@ -306,7 +314,7 @@ function setPaused(p) {
   paused = p;
   $("btn-pause").textContent = paused ? "继续" : "暂停";
   $("btn-pause").setAttribute("aria-pressed", String(paused));
-  status(paused ? "已暂停" : "");
+  status(paused ? "暂停啦，点「继续」或按空格键接着下" : "");
 }
 $("speed").oninput = (e) => {
   speed = Number(e.target.value);
@@ -412,8 +420,8 @@ canvas.addEventListener("pointerup", (e) => {
         markAt(m.to, m.target ? "#ff6b5a" : HQ[m.to] ? "#e8a13a" : "#7dd87d", m.target ? 0.6 : 0.3);
         if (HQ[m.to]) hqTo = true;
       }
-    if (HQ[s]) status("这枚棋子在大本营里，按规则从此不能再移动");
-    else if (hqTo) status("注意：走进大本营的棋子从此不能再移动，进去前想清楚");
+    if (HQ[s]) status("这枚棋子走进大本营啦，以后再也不能动了");
+    else if (hqTo) status("小心：走进大本营就再也出不来了，进去前想一想哦");
     return;
   }
   if (selected >= 0) {
@@ -434,22 +442,22 @@ function beginTurn() {
   if (replaying) showSettings(match.settings);
   if (scripted) {
     // 重放原局里人类下的那一步
-    status("重放：当时你下的这一步");
+    status("重放：这一步是当时你下的");
     ready = { choice: scripted, at: performance.now() + 700 / speed };
     phase = "ready";
     return;
   }
-  if (replaying && !match.replay) status("重放结束，接着按当前设置下");
+  if (replaying && !match.replay) status("重放完啦，接着往下下");
   // 重放进行中：原局由电脑下的步照样交给电脑，保证逐步一致
   if (control[side] === "human" && !match.replay) {
     phase = "human";
-    status(`轮到你走${SIDE[side]}方：点己方棋子，再点目标点`);
+    status("轮到你走啦：先点自己的棋子，再点它要去的地方");
     return;
   }
   phase = "think";
   thinker = decide(match);
   thinkStart = performance.now();
-  status(`${SIDE[side]}方推演中…`);
+  status(`${SIDE[side]}方在想怎么走…`);
 }
 
 function stepThinker(budget) {
@@ -486,12 +494,12 @@ function finish() {
   phase = "over";
   const r = match.result;
   const me = mode === "play" ? settings.seat.side : null; // 人在下时，胜负从他的座位上说
-  const title = !r.winner ? "和棋" : me ? (r.winner === me ? "你赢了" : "你输了") : `${SIDE[r.winner]}方胜`;
+  const title = !r.winner ? "平局啦" : me ? (r.winner === me ? "你赢啦！" : "你输啦") : `${SIDE[r.winner]}方赢啦`;
   $("banner-title").textContent = title;
-  $("banner-sub").textContent = `${r.reason} · 共 ${match.log.length} 步 · 种子 ${seed}`;
+  $("banner-sub").textContent = `${KID_REASON(r.reason)} · 走了 ${match.log.length} 步 · 种子 ${seed}`;
   $("end").classList.remove("hidden");
-  say(`${title}：${r.reason}`, "终局，双方棋子全部亮开");
-  status(!me && $("auto-next").checked ? "稍后自动开始新的一局" : "对局结束");
+  say(`${title}：${KID_REASON(r.reason)}`, "下完啦，所有棋子都亮开给大家看");
+  status(!me && $("auto-next").checked ? "马上开始新的一局" : "这盘棋下完啦");
   refresh();
   const last = match.log[match.log.length - 1];
   const at = last ? last.to : sq(2, 5);
