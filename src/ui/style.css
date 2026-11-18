@@ -129,8 +129,9 @@ label { color: var(--muted); }
 .more { display: grid; gap: var(--s3); border-top: 1px solid var(--line-soft); padding-top: var(--s3); }
 .panel.folded .more { display: none; }
 
-.slider { display: grid; grid-template-columns: 2.4em 1fr 3.2em; align-items: center; gap: var(--s2); }
-.slider output { color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.slider { display: grid; grid-template-columns: min-content 1fr auto; align-items: center; gap: var(--s2); }
+.slider span { white-space: nowrap; }
+.slider output { color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 input[type="range"] { appearance: none; width: 100%; height: 18px; margin: 0; background: transparent; cursor: pointer; }
 input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; background: linear-gradient(var(--gold-dim), var(--gold-dim)), var(--well); }
 input[type="range"]::-moz-range-track { height: 4px; border-radius: 99px; background: var(--gold-dim); }
