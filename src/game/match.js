@@ -2,7 +2,7 @@
  * [INPUT]: 依赖 engine/junqi 的 createGame、setupBoard、play、outcome、legalMoves；依赖 ai/rng 的 makeRng；
  *          依赖 ai/knowledge 的 createKnowledge、learn、observe、identified；依赖 ai/brain 的 createArmy、think、winRate、fogRate；
  *          依赖 ai/commentary 的 describe、endComment
- * [OUTPUT]: createMatch、startTurn、branch、decide、commit、visible、runSync、DEFAULTS、LEVELS（三档难度）
+ * [OUTPUT]: createMatch、startTurn、branch、decide、commit、visible、runSync、DEFAULTS、LEVELS（三档难度）。先手由种子随机定，随对局脚本记录与重放
  * [POS]: game 的唯一成员，把裁判（engine）和棋手（ai）串成一盘棋。commit() 是全项目唯一能改变对局状态的入口，只接受合法走法。
  *        它也是暗棋的守门人：电脑只拿得到 observe() 的视图；每步棋为全知、红方、黑方三种观众各备一份文字和胜率。
  *        选步的随机流按步派生，所以思考可以被丢弃重来而不破坏重放。仍然是纯逻辑，可在 Node 里无界面地跑完整盘。
@@ -30,13 +30,17 @@ export const LEVELS = [
 export function createMatch(seed, settings = {}, script = null) {
   const root = makeRng(seed);
   const initial = { ...DEFAULTS, ...(script ? script.settings : settings) };
+  // 先手掷硬币：从种子的独立支流取数，同一局可复现；重放时沿用原局的先手
+  const first = initial.first || (root.fork("first")() < 0.5 ? RED : BLACK);
+  initial.first = first;
   const armies = { r: createArmy(root.fork("army-r"), RED), b: createArmy(root.fork("army-b"), BLACK) };
   // 入座的一方换成自己点的阵。电脑那一方照旧从种子来，所以换阵型不会改变对手
   if (initial.seat) armies[initial.seat.side].formation = arrange(initial.seat.formation, initial.seat.mirror);
-  const state = createGame(setupBoard(armies.r.formation.layout, armies.b.formation.layout));
+  const state = createGame(setupBoard(armies.r.formation.layout, armies.b.formation.layout), first);
   const open = initial.mode === "open";
   return {
     seed,
+    first,
     settings: { ...initial },
     state,
     armies,

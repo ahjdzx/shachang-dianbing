@@ -5,7 +5,7 @@
  * [OUTPUT]: 无导出。页面入口；在 window.__jq 上留一个调试把手
  * [POS]: 总控。回合流程：引擎裁决 → 电脑选择 → 演出 → 导播。各层只通过走法记录交流。
  *        它还决定「观众是谁」（全知 / 红方 / 黑方），据此挑文字、挑胜率、给棋子蒙布——暗棋的保密在这里落到画面上。
- *        入座流程也在这里：演示 → 点兵 → 对局，三种状态写在 body 的 data-mode 上，样式据此显隐各个零件。
+ *        入座流程也在这里：演示 → 点兵 → 对局，三种状态写在 body 的 data-mode 上，样式据此显隐各个零件。终局的「再来一盘」直接重开：新种子换对手，先手随机。
  *        选子时给出大本营警示：走进大本营就再也出不来，困在里面的子也当场说明缘由。
  *        适配屏幕也在这里：视野随宽高比变、旗面随镜头俯角后仰、轻点才算落子。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
@@ -141,7 +141,7 @@ function armyLabel(color) {
 
 // 开局白：报种子和双方来历。按当前观众说话，所以还没走棋时换了视角要重说一遍，免得上一句把对手的阵型留在屏幕上
 function intro(script = null) {
-  say(script ? `重放种子 ${seed}` : `新的一局，种子 ${seed}`, script && script.events.length ? `按原局的 ${script.events.length} 处设置改动和你的走法精确重放` : `红方 ${armyLabel("r")}，黑方 ${armyLabel("b")} · ${match.settings.mode === "open" ? "明棋" : "暗棋"}`);
+  say(script ? `重放种子 ${seed}` : `新的一局，种子 ${seed}`, script && script.events.length ? `按原局的 ${script.events.length} 处设置改动和你的走法精确重放` : `红方 ${armyLabel("r")}，黑方 ${armyLabel("b")} · ${match.settings.mode === "open" ? "明棋" : "暗棋"} · 先手${SIDE[match.state.side]}方`);
 }
 
 // 兵力表：十二个兵种一列一个，红黑两行上下对照。满编、有损、打光三种状态靠明暗区分；
@@ -253,9 +253,24 @@ function leave() {
   director.setMode("auto");
   newGame(freshSeed());
 }
-$("btn-sit").onclick = $("btn-again").onclick = () => {
+$("btn-sit").onclick = () => {
   seating.sync();
   muster("reseed");
+};
+// 再来一盘：不回点兵牌，直接重开一局。新种子换对手阵型，先手由种子随机定，执子与阵型不变
+$("btn-again").onclick = () => {
+  const { side, level, formation, mirror } = seating.seat;
+  settings.seat = { side, formation, mirror };
+  showSettings({ ...settings, temperature: levelOf(level).temperature, depth: levelOf(level).depth });
+  setMode("play");
+  setControl(side);
+  setPaused(false);
+  view = side;
+  $("view").value = side;
+  newGame(freshSeed());
+  director.muster = false;
+  director.setMode("seat", side);
+  $("seat-info").textContent = `你执${SIDE[side]} · 对手${levelOf(level).name}`;
 };
 $("btn-watch").onclick = $("btn-leave").onclick = leave;
 
