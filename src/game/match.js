@@ -21,9 +21,9 @@ export const DEFAULTS = { temperature: 0.35, depth: 2, mode: "dark", seat: null 
 
 // 三档对手。档位只是温度和推演深度的预设；对手的性格和阵型仍由种子决定，并且对人保密。
 export const LEVELS = [
-  { key: "easy", name: "新手", note: "常走随手棋", temperature: 0.8, depth: 2 },
-  { key: "mid", name: "熟手", note: "正常发挥", temperature: 0.35, depth: 2 },
-  { key: "hard", name: "高手", note: "多想一步，少犯错", temperature: 0.1, depth: 3 },
+  { key: "easy", name: "刚开始下", note: "常常走错棋", temperature: 0.8, depth: 2 },
+  { key: "mid", name: "会下棋", note: "认真地下", temperature: 0.35, depth: 2 },
+  { key: "hard", name: "很厉害", note: "多想一想，很少出错", temperature: 0.1, depth: 3 },
 ];
 
 // script：上一盘的「对局脚本」（初始设置 + 按步记录的设置改动和人类走子）。传入它就能精确重放。

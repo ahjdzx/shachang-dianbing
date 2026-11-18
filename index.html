@@ -21,41 +21,41 @@
         <span class="seal" aria-hidden="true">旗</span>
         <h1>沙场点兵</h1>
         <span id="selftest" class="badge ok" title="规则引擎自检通过"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.4l2.4 2.4 4.6-5.3" /></svg>自检</span>
-        <button id="btn-record" class="ghost narrow-only" title="棋谱与兵力表">战况</button>
-        <button id="btn-fold" class="ghost" title="收起/展开设置">收起</button>
+        <button id="btn-record" class="ghost narrow-only" title="棋谱与兵力表">战报</button>
+        <button id="btn-fold" class="ghost" title="收起/展开设置">收起来</button>
       </header>
       <div class="row seed">
         <span class="k">种子</span><code id="seed">------</code>
-        <button id="btn-new">新种子</button>
-        <button id="btn-replay" title="按原局的设置改动和你的走法精确重放">重放</button>
+        <button id="btn-new">新一局</button>
+        <button id="btn-replay" title="按原局的设置改动和你的走法精确重放">重演一遍</button>
       </div>
       <div class="row play">
         <button id="btn-pause" class="primary" aria-pressed="false">暂停</button>
-        <label class="check demo-only"><input type="checkbox" id="auto-next" checked />打完自动开新局</label>
+        <label class="check demo-only"><input type="checkbox" id="auto-next" checked />下完自动开下一局</label>
         <span class="seated" id="seat-info"></span>
-        <button id="btn-leave" class="ghost seated" title="这盘作废，回到观战">离座</button>
+        <button id="btn-leave" class="ghost seated" title="这盘作废，回到观战">退出</button>
       </div>
       <div class="more">
         <label class="slider"><span>速度</span><input type="range" id="speed" min="0.25" max="3" step="0.05" value="1" /><output id="speed-out">1.0×</output></label>
         <label class="slider"><span>温度</span><input type="range" id="temp" min="0" max="1" step="0.01" value="0.35" /><output id="temp-out">0.35</output></label>
         <div class="fields">
-          <label class="field"><span>推演深度</span>
-            <select id="depth"><option value="2" selected>2</option><option value="3">3</option><option value="4">4（更慢）</option></select>
+          <label class="field"><span>电脑多厉害</span>
+            <select id="depth"><option value="2" selected>2 一般</option><option value="3">3 厉害</option><option value="4">4 特别厉害（更慢）</option></select>
           </label>
-          <label class="field"><span>镜头</span>
-            <select id="camera"><option value="auto" selected>自动导播</option><option value="free">自由视角</option><option value="top">俯视</option><option value="seat">入座</option></select>
+          <label class="field"><span>看棋的角度</span>
+            <select id="camera"><option value="auto" selected>自动跟着看</option><option value="free">自己转着看</option><option value="top">从上往下看</option><option value="seat">坐在棋盘边</option></select>
           </label>
-          <label class="field"><span>规则</span>
-            <select id="mode"><option value="dark" selected>暗棋</option><option value="open">明棋</option></select>
+          <label class="field"><span>玩法</span>
+            <select id="mode"><option value="dark" selected>暗棋（看不见对方）</option><option value="open">明棋（看得见对方）</option></select>
           </label>
-          <label class="field"><span>视角</span>
-            <select id="view"><option value="all" selected>全知观战</option><option value="r">红方视角</option><option value="b">黑方视角</option></select>
+          <label class="field"><span>谁的眼睛</span>
+            <select id="view"><option value="all" selected>双方都看得见</option><option value="r">红方的眼睛</option><option value="b">黑方的眼睛</option></select>
           </label>
           <label class="field red"><span>红方</span>
-            <select id="ctl-r"><option value="ai" selected>电脑</option><option value="human">我来下</option></select>
+            <select id="ctl-r"><option value="ai" selected>电脑下</option><option value="human">我来下</option></select>
           </label>
           <label class="field black"><span>黑方</span>
-            <select id="ctl-b"><option value="ai" selected>电脑</option><option value="human">我来下</option></select>
+            <select id="ctl-b"><option value="ai" selected>电脑下</option><option value="human">我来下</option></select>
           </label>
         </div>
         <details class="hint">
@@ -99,7 +99,7 @@
       <div id="comment" class="comment" aria-live="polite"><span id="comment-text">桌上的两支军队已经列好阵</span><small id="comment-sub"></small></div>
     </div>
     <div id="end" class="end hidden"><div class="banner"><div class="title" id="banner-title"></div><div class="rule"></div><div class="sub" id="banner-sub"></div>
-      <div class="after"><button id="btn-again" class="primary play-only">再来一盘</button><button id="btn-watch" class="play-only">观战</button><button id="btn-review" class="ghost">回看棋盘</button></div>
+      <div class="after"><button id="btn-again" class="primary play-only">再来一盘</button><button id="btn-watch" class="play-only">看电脑下</button><button id="btn-review" class="ghost">回看棋盘</button></div>
     </div></div>
 
     <script type="module" src="/src/main.js"></script>

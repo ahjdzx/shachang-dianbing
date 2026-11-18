@@ -42,19 +42,19 @@ export function createSeating(root, { formations, levels, onChange, onStart, onC
   };
   const chip = (group, value, text) => `<label><input type="radio" name="seat-${group}" value="${value}" /><span>${text}</span></label>`;
   root.innerHTML = `
-    <header><h2>点兵</h2><p>排好阵，挑个对手，就开局。</p></header>
-    <fieldset class="pick sides"><legend>执子</legend>
-      ${chip("side", "r", "执红 · 先行")}${chip("side", "b", "执黑 · 后行")}
+    <header><h2>点兵</h2><p>排好阵，挑个对手，就开战！</p></header>
+    <fieldset class="pick sides"><legend>你当哪一方</legend>
+      ${chip("side", "r", "红军")}${chip("side", "b", "黑军")}
     </fieldset>
-    <fieldset class="pick formations"><legend>阵型<label class="check"><input type="checkbox" name="seat-mirror" />左右对调</label></legend>
+    <fieldset class="pick formations"><legend>棋子怎么摆<label class="check"><input type="checkbox" name="seat-mirror" />左右换一换</label></legend>
       ${formations.map((f) => chip("formation", f.name, f.name)).join("")}
       <p class="note" data-note="formation" aria-live="polite"></p>
     </fieldset>
-    <fieldset class="pick levels"><legend>对手</legend>
+    <fieldset class="pick levels"><legend>对手有多厉害</legend>
       ${levels.map((l) => chip("level", l.key, l.name)).join("")}
       <p class="note" data-note="level" aria-live="polite"></p>
     </fieldset>
-    <div class="row actions"><button class="primary" data-act="start">开局</button><button class="ghost" data-act="cancel">算了</button></div>`;
+    <div class="row actions"><button class="primary" data-act="start">开战！</button><button class="ghost" data-act="cancel">先不下</button></div>`;
 
   // 把当前选择写回控件，并更新两句说明
   function sync() {

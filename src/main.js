@@ -247,7 +247,7 @@ function startPlay() {
   setMode("play");
   setControl(side);
   newGame(seed, null, true); // 同一盘、同一阵，带上选定的难度正式开局；棋子已经在位
-  $("seat-info").textContent = `你执${SIDE[side]} · 对手${lv.name}`;
+  $("seat-info").textContent = `你当${SIDE[side]}方 · 对手${lv.name}`;
   director.muster = false;
   director.setMode("seat", side);
 }
@@ -278,7 +278,7 @@ $("btn-again").onclick = () => {
   newGame(freshSeed());
   director.muster = false;
   director.setMode("seat", side);
-  $("seat-info").textContent = `你执${SIDE[side]} · 对手${levelOf(level).name}`;
+  $("seat-info").textContent = `你当${SIDE[side]}方 · 对手${levelOf(level).name}`;
 };
 $("btn-watch").onclick = $("btn-leave").onclick = leave;
 
@@ -300,7 +300,7 @@ function userChanged() {
 $("btn-pause").onclick = () => setPaused(!paused);
 function setFolded(folded) {
   $("controls").classList.toggle("folded", folded);
-  $("btn-fold").textContent = folded ? "设置" : "收起";
+  $("btn-fold").textContent = folded ? "设置" : "收起来";
 }
 $("btn-fold").onclick = () => setFolded(!$("controls").classList.contains("folded"));
 // 设置默认收起，把画面让给棋盘：来的多半是下棋的人，种子、温度、深度是行家才动的东西。
