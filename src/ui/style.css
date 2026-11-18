@@ -153,8 +153,8 @@ input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
 .hint summary:hover { color: var(--muted); }
 .hint p { margin: var(--s2) 0 0; }
 
-/* 军棋规则：等级表从大到小，字号递减直接把大小画出来 */
-.rules .rank { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 3px; margin: var(--s2) 0 0; }
+/* 军棋规则：等级表从大到小，字号递减直接把大小画出来；编号帮小朋友看清谁大谁小 */
+.rules .rank { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 3px; margin: var(--s2) 0 0; counter-reset: rk; }
 .rules .rank i {
   font: 400 13px/1 var(--kai);
   font-style: normal;
@@ -165,6 +165,7 @@ input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
   padding: 3px 6px;
   letter-spacing: 0.04em;
 }
+.rules .rank i::before { counter-increment: rk; content: counter(rk); font-size: 0.72em; color: var(--faint); margin-right: 3px; }
 .rules .rank i:nth-child(1) { font-size: 16px; color: var(--gold); }
 .rules .rank i:nth-child(2) { font-size: 15px; }
 .rules .rank i:nth-child(3) { font-size: 14px; }
