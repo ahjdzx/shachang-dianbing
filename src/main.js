@@ -1,16 +1,17 @@
 /**
- * [INPUT]: 依赖 engine/junqi 的 selfTest、legalMoves、sq、TYPES、COUNT、GLYPH；依赖 game/match 的 createMatch、decide、commit、startTurn、branch、visible、LEVELS；
+ * [INPUT]: 依赖 engine/junqi 的 selfTest、legalMoves、sq、N、HQ、TYPES、COUNT、GLYPH；依赖 game/match 的 createMatch、decide、commit、startTurn、branch、visible、LEVELS；
  *          依赖 ai/formations 的 FORMATIONS（阵型清单）；依赖 ui/seating 的 createSeating（开局牌）；
  *          依赖 ai/rng 的 makeRng、freshSeed；依赖 render/world 的 createWorld、toWorld、fromWorld；依赖 sim/show 的 Stage；依赖 render/director 的 Director
  * [OUTPUT]: 无导出。页面入口；在 window.__jq 上留一个调试把手
  * [POS]: 总控。回合流程：引擎裁决 → 电脑选择 → 演出 → 导播。各层只通过走法记录交流。
  *        它还决定「观众是谁」（全知 / 红方 / 黑方），据此挑文字、挑胜率、给棋子蒙布——暗棋的保密在这里落到画面上。
  *        入座流程也在这里：演示 → 点兵 → 对局，三种状态写在 body 的 data-mode 上，样式据此显隐各个零件。
+ *        选子时给出大本营警示：走进大本营就再也出不来，困在里面的子也当场说明缘由。
  *        适配屏幕也在这里：视野随宽高比变、旗面随镜头俯角后仰、轻点才算落子。
  * [PROTOCOL]: Update this header on change, then check CLAUDE.md
  */
 import * as THREE from "three";
-import { selfTest, legalMoves, sq, N, TYPES, COUNT, GLYPH } from "./engine/junqi.js";
+import { selfTest, legalMoves, sq, N, HQ, TYPES, COUNT, GLYPH } from "./engine/junqi.js";
 import { createMatch, decide, commit, startTurn, branch, visible, DEFAULTS, LEVELS } from "./game/match.js";
 import { FORMATIONS } from "./ai/formations.js";
 import { createSeating } from "./ui/seating.js";
@@ -381,7 +382,15 @@ canvas.addEventListener("pointerup", (e) => {
     clearMarks();
     selected = s;
     markAt(s, "#e9c46a", 0.6);
-    for (const m of legal) if (m.from === s) markAt(m.to, m.target ? "#ff6b5a" : "#7dd87d", m.target ? 0.6 : 0.3);
+    let hqTo = false;
+    for (const m of legal)
+      if (m.from === s) {
+        // 大本营单独用琥珀色圈：进去就再也出不来，得让玩家看清这是个单程门
+        markAt(m.to, m.target ? "#ff6b5a" : HQ[m.to] ? "#e8a13a" : "#7dd87d", m.target ? 0.6 : 0.3);
+        if (HQ[m.to]) hqTo = true;
+      }
+    if (HQ[s]) status("这枚棋子在大本营里，按规则从此不能再移动");
+    else if (hqTo) status("注意：走进大本营的棋子从此不能再移动，进去前想清楚");
     return;
   }
   if (selected >= 0) {
