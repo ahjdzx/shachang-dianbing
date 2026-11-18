@@ -85,7 +85,7 @@ function newGame(s, script = null, reform = false) {
   else stage.reset(match.state.board, makeRng(seed).fork("show"));
   $("seed").textContent = seed;
   intro(script);
-  $("banner").classList.add("hidden");
+  $("end").classList.add("hidden");
   thinker = null;
   ready = null;
   clearMarks();
@@ -183,6 +183,11 @@ function refresh() {
 
 $("btn-new").onclick = () => newGame(freshSeed());
 $("btn-replay").onclick = () => mode !== "muster" && newGame(seed, match.script);
+// 终局弹窗：点空白处或「回看棋盘」都能收起，留在终局局面慢慢看
+$("btn-review").onclick = () => $("end").classList.add("hidden");
+$("end").onclick = (e) => {
+  if (e.target.id === "end") $("end").classList.add("hidden");
+};
 
 // ---- 入座点兵 ------------------------------------------------------------------------
 // 演示 →（我来下一盘）→ 点兵：选执子、阵型、对手 →（开局）→ 对局 →（再来一盘 / 观战 / 离座）
@@ -469,7 +474,7 @@ function finish() {
   const title = !r.winner ? "和棋" : me ? (r.winner === me ? "你赢了" : "你输了") : `${SIDE[r.winner]}方胜`;
   $("banner-title").textContent = title;
   $("banner-sub").textContent = `${r.reason} · 共 ${match.log.length} 步 · 种子 ${seed}`;
-  $("banner").classList.remove("hidden");
+  $("end").classList.remove("hidden");
   say(`${title}：${r.reason}`, "终局，双方棋子全部亮开");
   status(!me && $("auto-next").checked ? "稍后自动开始新的一局" : "对局结束");
   refresh();
